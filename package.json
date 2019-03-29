@@ -159,6 +159,14 @@
         "description": "Open ECL Watch Workunit Details page."
       },
       {
+        "command": "ecl.detach",
+        "title": "Detach",
+        "icon": {
+          "dark": "./images/dashy-view-dark.svg",
+          "light": "./images/dashy-view.svg"
+        }
+      },
+      {
         "command": "dashy.view",
         "title": "View Dashboard",
         "icon": {
@@ -210,6 +218,13 @@
           "when": "resourceLangId == json && resourceExtname == .dashy",
           "command": "dashy.edit",
           "group": "navigation@999"
+        }
+      ],
+      "debug/toolbar": [
+        {
+          "when": "resourceLangId == ecl",
+          "command": "ecl.detach",
+          "group": "ecl"
         }
       ]
     },

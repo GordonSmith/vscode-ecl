@@ -218,6 +218,10 @@ export class ECLDebugSession extends DebugSession {
         this.logger.debug("launchResponse");
     }
 
+    protected customRequest(command: string, response: DebugProtocol.Response, args: any): void {
+        debugger;
+    }
+
     private disconnectWorkunit() {
         if (this.workunit.isComplete() || !this.workunit.isDebugging()) {
             return Promise.resolve();
