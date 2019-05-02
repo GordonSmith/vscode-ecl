@@ -1,5 +1,6 @@
 import { EclccErrors, locateAllClientTools, locateClientTools, Workunit, XGMMLEdge, XGMMLGraph, XGMMLSubgraph, XGMMLVertex } from "@hpcc-js/comms";
 import { IObserverHandle, Level, logger, scopedLogger, ScopedLogging, Writer } from "@hpcc-js/util";
+import { Subject } from "await-notify";
 
 import { Breakpoint, ContinuedEvent, DebugSession, Event, Handles, InitializedEvent, OutputEvent, Scope, Source, StackFrame, StoppedEvent, TerminatedEvent, Thread, Variable } from "vscode-debugadapter";
 import { DebugProtocol } from "vscode-debugprotocol";
@@ -112,6 +113,9 @@ function xmlFile(programPath: string): Promise<{ err: EclccErrors, content: stri
 }
 
 export class ECLDebugSession extends DebugSession {
+    private static THREAD_ID = 1;
+    private _configurationDone = new Subject();
+
     workunit!: Workunit;
     watchHandle!: IObserverHandle;
     launchConfig!: LaunchConfig;
@@ -131,28 +135,30 @@ export class ECLDebugSession extends DebugSession {
     public constructor() {
         super();
         logger.writer(new VSCodeServerWriter(this));
-        logger.level(Level.info);
+        logger.level(Level.debug);
         this.logger = scopedLogger("ECLDebugSession");
 
         locateAllClientTools();
     }
 
+    /**
+     * The 'initialize' request is the first request called by the frontend
+     * to interrogate the features the debug adapter provides.
+     */
     protected initializeRequest(response: DebugProtocol.InitializeResponse, args: DebugProtocol.InitializeRequestArguments): void {
         this.logger.debug("InitializeRequest");
-        if (response.body) {
-            response.body.supportsConditionalBreakpoints = false;
-            response.body.supportsHitConditionalBreakpoints = false;
-            response.body.supportsFunctionBreakpoints = false;
-            response.body.supportsConfigurationDoneRequest = true;
-            response.body.supportsEvaluateForHovers = false;
-            response.body.supportsStepBack = false;
-            response.body.supportsSetVariable = false;
-            response.body.supportsRestartFrame = false;
-            response.body.supportsStepInTargetsRequest = false;
-            response.body.supportsGotoTargetsRequest = false;
-            response.body.supportsCompletionsRequest = false;
-            response.body.supportsConfigurationDoneRequest = true;
-        }
+        response.body = response.body || {};
+        response.body.supportsConditionalBreakpoints = false;
+        response.body.supportsHitConditionalBreakpoints = false;
+        response.body.supportsFunctionBreakpoints = false;
+        response.body.supportsConfigurationDoneRequest = true;
+        response.body.supportsEvaluateForHovers = false;
+        response.body.supportsStepBack = false;
+        response.body.supportsSetVariable = false;
+        response.body.supportsRestartFrame = false;
+        response.body.supportsStepInTargetsRequest = false;
+        response.body.supportsGotoTargetsRequest = false;
+        response.body.supportsCompletionsRequest = false;
         this.sendResponse(response);
         this.logger.debug("InitializeResponse");
     }
@@ -184,7 +190,8 @@ export class ECLDebugSession extends DebugSession {
                 return [wu, archive] as [Workunit, any];
             });
         }).then(([wu, archive]) => {
-            this.sendEvent(new Event("WUCreated", { ...this.launchConfig._config, wuid: wu.Wuid }));
+            // this.sendEvent(new Event("WUCreated", { ...this.launchConfig._config, wuid: wu.Wuid }));
+            this.logger.debug("sendEvent:Event");
             this.sendEvent(new OutputEvent("Updating workunit." + os.EOL));
             return wu.update({
                 Jobname: pathParts.name,
@@ -205,17 +212,18 @@ export class ECLDebugSession extends DebugSession {
             this.sendEvent(new OutputEvent("Submitted:  " + this.launchConfig.wuDetailsUrl(this.workunit.Wuid) + os.EOL));
         }).then(() => {
             this.workunit.watchUntilRunning().then(() => {
+                this.logger.debug("sendEvent:InitializeEvent");
                 this.sendEvent(new InitializedEvent());
-                this.logger.debug("InitializeEvent");
+                this.sendResponse(response);
+                this.logger.debug("launchResponse");
             });
         }).catch((e) => {
             this.sendEvent(new OutputEvent(`Launch failed - ${e}${os.EOL}`));
             this.sendEvent(new TerminatedEvent());
-            this.logger.debug("InitializeEvent");
+            this.sendResponse(response);
+            this.logger.debug("launchResponse");
         });
 
-        this.sendResponse(response);
-        this.logger.debug("launchResponse");
     }
 
     private disconnectWorkunit() {
@@ -246,6 +254,10 @@ export class ECLDebugSession extends DebugSession {
         });
     }
 
+	/**
+	 * Called at the end of the configuration sequence.
+	 * Indicates that all breakpoints etc. have been sent to the DA and that the 'launch' can start.
+	 */
     protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.ConfigurationDoneArguments): void {
         this.logger.debug("ConfigurationDoneRequest");
         this.sendEvent(new OutputEvent(`Monitoring:  ${this.workunit.Wuid}.${os.EOL}`));
@@ -261,10 +273,11 @@ export class ECLDebugSession extends DebugSession {
             }
             if (this.workunit.isComplete()) {
                 this.sendEvent(new TerminatedEvent());
-                this.logger.debug("TerminatedEvent");
+                this.logger.debug("sendEvent:TerminatedEvent");
             }
             if (this._prevDebugSequence !== debugState.sequence) {
                 this._prevDebugSequence = debugState.sequence;
+                this.logger.debug(`Debugging: ${debugState.state} - ${JSON.stringify(debugState)}${os.EOL}`);
                 switch (debugState.state) {
                     case "created":
                     case "finished":
@@ -273,15 +286,14 @@ export class ECLDebugSession extends DebugSession {
                     case "edge":
                     case "node":
                     case "exception":
-                        this.logger.debug("StoppedEvent");
-                        this.sendEvent(new StoppedEvent(debugState.state, 0));
+                        this.sendEvent(new StoppedEvent(debugState.state, 1));
+                        this.logger.debug("sendEvent:StoppedEvent");
                         break;
                     case "debug_running":
                         break;
                     default:
                 }
             }
-            this.logger.debug(`Debugging: ${debugState.state} - ${JSON.stringify(debugState)}${os.EOL}`);
         }, true);
         this.sendResponse(response);
         this.logger.debug("ConfigurationDoneResponse");
@@ -296,6 +308,7 @@ export class ECLDebugSession extends DebugSession {
             }).then((validBPLocations: any) => {
                 // verify breakpoint locations
                 const breakpoints: Breakpoint[] = [];
+                /*
                 const clientLines = args.lines;
                 if (clientLines) {
                     for (const clientLine of clientLines) {
@@ -312,29 +325,32 @@ export class ECLDebugSession extends DebugSession {
                 }
                 this.logger.debug(this._breakPoints);
                 this._breakPoints.set(sourcePath, breakpoints);
-
+                */
                 // send back the actual breakpoint positions
                 response.body = {
                     breakpoints
                 };
                 this.sendResponse(response);
-                this.logger.debug("SetBreakPointsRequest");
+                this.logger.debug("SetBreakPointsResponse");
             });
         } else {
             this.sendResponse(response);
-            this.logger.debug("SetBreakPointsRequest");
+            this.logger.debug("SetBreakPointsResponse");
         }
 
     }
 
     protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
         this.logger.debug("ThreadsRequest");
-        const threads: Thread[] = [];
-        threads.push(new Thread(0, "main"));
+
+        // runtime supports now threads so just return a default thread.
         response.body = {
-            threads
+            threads: [
+                new Thread(1, "thread 1")
+            ]
         };
         this.sendResponse(response);
+        this.logger.debug("ThreadsResponse");
     }
 
     protected pushStackFrame(stackFrames: StackFrame[], graphItem: XGMMLGraphItem, def?: any): void {
@@ -514,13 +530,14 @@ export class ECLDebugSession extends DebugSession {
         this.logger.debug("VariablesResponse");
     }
 
-    protected continueRequest(response: DebugProtocol.ContinueResponse): void {
+    protected continueRequest(response: DebugProtocol.ContinueResponse, args: DebugProtocol.ContinueArguments): void {
         this.logger.debug("ContinueRequest");
         this.workunit.debugContinue().then((debugResponse) => {
             this.logger.debug("debugContinue.then");
             this.workunit.refresh();
         });
-        this.sendEvent(new ContinuedEvent(0));
+        this.sendEvent(new ContinuedEvent(1));
+        this.logger.debug("sendEvent:ContinuedEvent");
         this.sendResponse(response);
         this.logger.debug("ContinueResponse");
     }
