@@ -254,10 +254,10 @@ export class ECLDebugSession extends DebugSession {
         });
     }
 
-	/**
-	 * Called at the end of the configuration sequence.
-	 * Indicates that all breakpoints etc. have been sent to the DA and that the 'launch' can start.
-	 */
+    /**
+     * Called at the end of the configuration sequence.
+     * Indicates that all breakpoints etc. have been sent to the DA and that the 'launch' can start.
+     */
     protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.ConfigurationDoneArguments): void {
         this.logger.debug("ConfigurationDoneRequest");
         this.sendEvent(new OutputEvent(`Monitoring:  ${this.workunit.Wuid}.${os.EOL}`));

@@ -39,9 +39,9 @@ export class MockRuntime extends EventEmitter {
         super();
     }
 
-	/**
-	 * Start executing the given program.
-	 */
+    /**
+     * Start executing the given program.
+     */
     public start(program: string, stopOnEntry: boolean) {
 
         this.loadSource(program);
@@ -58,23 +58,30 @@ export class MockRuntime extends EventEmitter {
         }
     }
 
-	/**
-	 * Continue execution to the end/beginning.
-	 */
+    /**
+     * Continue execution to the end/beginning.
+     */
     public continue(reverse = false) {
         this.run(reverse, undefined);
     }
 
-	/**
-	 * Step to the next/previous non empty line.
-	 */
+    /**
+     * Pause execution.
+     */
+    public pause() {
+        this.sendEvent("stop", "PauseXXX");
+    }
+
+    /**
+     * Step to the next/previous non empty line.
+     */
     public step(reverse = false, event = "stopOnStep") {
         this.run(reverse, event);
     }
 
-	/**
-	 * Returns a fake 'stacktrace' where every 'stackframe' is a word from the current line.
-	 */
+    /**
+     * Returns a fake 'stacktrace' where every 'stackframe' is a word from the current line.
+     */
     public stack(startFrame: number, endFrame: number): any {
 
         const words = this._sourceLines[this._currentLine].trim().split(/\s+/);
@@ -82,7 +89,7 @@ export class MockRuntime extends EventEmitter {
         const frames = new Array<any>();
         // every word of the current line becomes a stack frame.
         for (let i = startFrame; i < Math.min(endFrame, words.length); i++) {
-            const name = words[i];	// use a word of the line as the stackframe name
+            const name = words[i];    // use a word of the line as the stackframe name
             frames.push({
                 index: i,
                 name: `${name}(${i})`,
@@ -96,9 +103,9 @@ export class MockRuntime extends EventEmitter {
         };
     }
 
-	/*
-	 * Set breakpoint in file with given line.
-	 */
+    /*
+     * Set breakpoint in file with given line.
+     */
     public setBreakPoint(path: string, line: number): MockBreakpoint {
 
         const bp = { verified: false, line, id: this._breakpointId++ } as MockBreakpoint;
@@ -114,9 +121,9 @@ export class MockRuntime extends EventEmitter {
         return bp;
     }
 
-	/*
-	 * Clear breakpoint in file with given line.
-	 */
+    /*
+     * Clear breakpoint in file with given line.
+     */
     public clearBreakPoint(path: string, line: number): MockBreakpoint | undefined {
         const bps = this._breakPoints.get(path);
         if (bps) {
@@ -130,9 +137,9 @@ export class MockRuntime extends EventEmitter {
         return undefined;
     }
 
-	/*
-	 * Clear all breakpoints for file.
-	 */
+    /*
+     * Clear all breakpoints for file.
+     */
     public clearBreakpoints(path: string): void {
         this._breakPoints.delete(path);
     }
@@ -146,10 +153,10 @@ export class MockRuntime extends EventEmitter {
         }
     }
 
-	/**
-	 * Run through the file.
-	 * If stepEvent is specified only run a single step and emit the stepEvent.
-	 */
+    /**
+     * Run through the file.
+     * If stepEvent is specified only run a single step and emit the stepEvent.
+     */
     private run(reverse = false, stepEvent?: string) {
         if (reverse) {
             for (let ln = this._currentLine - 1; ln >= 0; ln--) {
@@ -200,10 +207,10 @@ export class MockRuntime extends EventEmitter {
         }
     }
 
-	/**
-	 * Fire events if line has a breakpoint or the word 'exception' is found.
-	 * Returns true is execution needs to stop.
-	 */
+    /**
+     * Fire events if line has a breakpoint or the word 'exception' is found.
+     * Returns true is execution needs to stop.
+     */
     private fireEventsForLine(ln: number, stepEvent?: string): boolean {
 
         const line = this._sourceLines[ln].trim();
