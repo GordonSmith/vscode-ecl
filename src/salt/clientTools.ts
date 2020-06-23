@@ -7,12 +7,13 @@ import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
 import * as AdmZip from "adm-zip";
+import { importModString } from '../ecl/mod/import';
 
 const logger = scopedLogger("salt/clientTools.ts");
 
 class SaltccErrors extends Errors {
 
-    constructor(stdErr: string, checked: string[]) {
+    constructor(infilePath: string, stdErr: string, checked: string[]) {
         super(checked);
         if (stdErr && stdErr.length) {
             for (const errLine of stdErr.split(os.EOL)) {
@@ -37,15 +38,16 @@ class SaltccErrors extends Errors {
                 if (match) {
                     continue;
                 }
-                logger.warning(`parseECLErrors:  Unable to parse "${errLine}"`);
-                this.errOther.push(errLine);
+                logger.warning(`parseSaltErrors:  Unable to parse "${errLine}"`);
+                this.errWarn.push({ filePath: infilePath, line: 0, col: 0, msg: errLine, severity: "warning" });
+                continue;
             }
         }
         this._checked = checked;
     }
 }
 
-interface SaltResponse {
+export interface SaltResponse {
     stdout: string;
     errors: SaltccErrors;
 }
@@ -90,7 +92,7 @@ class SALTClientTools extends ClientTools {
         if (this._fullVersion) {
             return Promise.resolve(this._fullVersion);
         }
-        return this.spawnJava("", ["--version"]).then(response => {
+        return this.spawnJava("", ["-legacy -v"]).then(response => {
             this._fullVersion = new Version(response.stdout);
             return this._fullVersion;
         });
@@ -103,46 +105,51 @@ class SALTClientTools extends ClientTools {
     checkSyntax(filePath: string, args?: string[]): Promise<SaltResponse> {
         const uri = Uri.file(filePath);
         const saltFolder = path.dirname(filePath);
-        return this.spawnSalt(saltFolder, workspace.getWorkspaceFolder(uri).uri.fsPath, uri.fsPath, this.args([
-            "--syntaxcheck"
+        return this.spawnSalt2(workspace.getWorkspaceFolder(uri).uri.fsPath, uri.fsPath, this.args([
         ]));
     }
 
     generate(uri: Uri): Promise<SaltResponse> {
-        this.extractLibs(uri);
+        // this.extractLibs(uri);
         const filePath = uri.fsPath;
-        const fileFolder = path.dirname(filePath);
-        const outFolder = this.genFolder(uri);
-        return this.spawnSalt(fileFolder, workspace.getWorkspaceFolder(uri).uri.fsPath, uri.fsPath, this.args([
-            "--pack", "dir",
-            "-o", outFolder
-        ]));
+        const workspaceFolder = workspace.getWorkspaceFolder(uri).uri.fsPath;
+        return this.spawnSalt2(workspaceFolder, uri.fsPath, this.args([
+            // "--pack", "dir",
+            // "-o", outPath
+        ])).then(response => {
+            importModString(workspaceFolder, response.stdout);
+            return response;
+        });
     }
 
     private spawnSalt(cwd: string, inFolder: string, inFile: string, args: string[]): Promise<SaltResponse> {
-        return this.spawnJava(cwd, ["-i", inFolder, inFile, ...args]);
+        return this.spawnJava(cwd, ["-e", "inFolder", "-s", inFile, ...args], inFile);
     }
 
-    private spawnJava(cwd: string, args: string[]): Promise<SaltResponse> {
+    private spawnSalt2(cwd: string, inFile: string, args: string[]): Promise<SaltResponse> {
+        return this.spawnJava(cwd, ["-s", inFile, ...args], inFile);
+    }
+
+    private spawnJava(cwd: string, args: string[], inFile?: string): Promise<SaltResponse> {
         const saltConfig = workspace.getConfiguration("salt");
         const javaArgs = saltConfig.get<string[]>("javaArgs");
         return this.spawnProc("java", cwd, this.args([
             ...javaArgs,
-            "-jar", path.join(this.binPath, "SALT.jar"),
+            "-cp", path.join(this.binPath, "SALT.jar"), "com.relx.rba.tardis.salt.apps.SaltECL",
             ...args
         ]), "salt", `Cannot find ${this.saltPath}`).then(response => {
             const checked: string[] = [];
             logger.info(response.stdout);
             return {
                 stdout: response.stdout,
-                errors: new SaltccErrors(response.stderr, checked)
+                errors: new SaltccErrors(inFile, response.stderr, checked)
             }
         });
     }
 
     private spawnProc(cmd: string, cwd: string, args: string[], _toolName: string, _notFoundError?: string): Promise<{ stdout: string, stderr: string }> {
-        logger.debug(`cd "${cwd}"`);
-        logger.debug(`${cmd} ${args.map(arg => `"${arg}"`).join(" ")}`);
+        logger.info(`cd "${cwd}"`);
+        logger.info(`${cmd} ${args.map(arg => `"${arg}"`).join(" ")}`);
         return new Promise<{ stdout: string, stderr: string }>((resolve, _reject) => {
             const child = cp.spawn(cmd, args, { cwd });
             let stdOut = "";

@@ -2,8 +2,8 @@ import * as vscode from "vscode";
 import { Antlr4Error, ErrorListener } from "../util/errorListener";
 
 import * as antlr4 from "antlr4";
-import { KELLexer } from "../../src/grammar/kel/KELLexer";
-import { KELParser } from "../../src/grammar/kel/KELParser";
+import { KELLexer } from "../grammar/kel/KELLexer";
+import { KELParser } from "../grammar/kel/KELParser";
 // import { KELParserVisitor } from "../../src/grammar/kel/KELParserVisitor";
 
 interface Parsed {
@@ -21,7 +21,7 @@ export function parse(doc: vscode.TextDocument): Parsed {
     const chars = new antlr4.InputStream(doc.getText());
     const lexer = new KELLexer(chars);
     const tokens = new antlr4.CommonTokenStream(lexer);
-    const parser = new KELParser(tokens);
+    const parser: any = new KELParser(tokens);
     parser.buildParseTrees = true;
     parser.removeErrorListeners();
     parser.addErrorListener(errorListener);

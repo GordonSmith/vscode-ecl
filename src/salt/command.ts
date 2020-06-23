@@ -1,6 +1,6 @@
 import { scopedLogger } from "@hpcc-js/util";
 import * as vscode from "vscode";
-import { locateClientTools, selectCTVersion } from "./clientTools";
+import { locateClientTools, selectCTVersion, SaltResponse } from "./clientTools";
 import { Diagnostic } from "./diagnostic";
 
 const logger = scopedLogger("salt/command.ts");
@@ -42,6 +42,27 @@ export class Commands {
         return this.checkSyntax(vscode.window.activeTextEditor?.document);
     }
 
+    reportErrors(doc: vscode.TextDocument, response: SaltResponse) {
+        const mappedErrors: { [fp: string]: vscode.Diagnostic[] } = {};
+        mappedErrors[doc.uri.fsPath] = [];
+        response.errors.all().forEach(error => {
+            const errorFilePath = error.filePath;
+            const line = +error.line > 0 ? +error.line - 1 : 0;
+            const col = +error.col >= 0 ? +error.col : 0;
+            const range = new vscode.Range(line, col, line, col);
+            if (!mappedErrors[errorFilePath]) {
+                mappedErrors[errorFilePath] = [];
+            }
+            mappedErrors[errorFilePath].push(new vscode.Diagnostic(range, error.msg, mapSeverityToVSCodeSeverity(error.severity)));
+        });
+        for (const fp in mappedErrors) {
+            const uri = vscode.Uri.file(fp);
+            const uri2 = doc.uri;
+            console.log(uri, uri2);
+            this._diagnostic.set(uri, mappedErrors[fp]);
+        }
+    }
+
     checkSyntax(doc?: vscode.TextDocument) {
         if (doc) {
             doc.save();
@@ -55,24 +76,7 @@ export class Commands {
                     logger.debug("checkSyntax-check-start");
                     clientTools.checkSyntax(doc.uri.fsPath).then(response => {
                         logger.debug("checkSyntax-check-response");
-                        const mappedErrors: { [fp: string]: vscode.Diagnostic[] } = {};
-                        mappedErrors[doc.uri.fsPath] = [];
-                        response.errors.all().forEach(error => {
-                            const errorFilePath = error.filePath;
-                            const line = +error.line > 0 ? +error.line - 1 : 0;
-                            const col = +error.col >= 0 ? +error.col : 0;
-                            const range = new vscode.Range(line, col, line, col);
-                            if (!mappedErrors[errorFilePath]) {
-                                mappedErrors[errorFilePath] = [];
-                            }
-                            mappedErrors[errorFilePath].push(new vscode.Diagnostic(range, error.msg, mapSeverityToVSCodeSeverity(error.severity)));
-                        });
-                        for (const fp in mappedErrors) {
-                            const uri = vscode.Uri.file(fp);
-                            const uri2 = doc.uri;
-                            console.log(uri, uri2);
-                            this._diagnostic.set(uri, mappedErrors[fp]);
-                        }
+                        this.reportErrors(doc, response)
                         logger.debug("checkSyntax-check-response-end");
                     });
                 }
@@ -89,7 +93,11 @@ export class Commands {
             doc.save();
             locateClientTools().then(clientTools => {
                 if (clientTools) {
-                    clientTools.generate(doc.uri);
+                    clientTools.generate(doc.uri).then(response => {
+                        logger.debug("generate-response");
+                        this.reportErrors(doc, response)
+                        logger.debug("generate-response-end");
+                    });
                 }
             })
         }

@@ -3,6 +3,7 @@ import { checkTextDocument, checkWorkspace } from "./check";
 import { selectCTVersion } from "./clientTools";
 import { eclDiagnostic } from "./diagnostic";
 import { encodeLocation } from "./watch";
+import { importModFile } from './mod/import';
 
 export let eclCommands: ECLCommands;
 export class ECLCommands {
@@ -17,6 +18,7 @@ export class ECLCommands {
         ctx.subscriptions.push(vscode.commands.registerTextEditorCommand("ecl.searchTerm", this.searchTerm));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.openWUDetails", this.openWUDetails));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.selectCTVersion", selectCTVersion));
+        ctx.subscriptions.push(vscode.commands.registerCommand("ecl.importMod", this.importMod));
     }
 
     static attach(ctx: vscode.ExtensionContext): ECLCommands {
@@ -68,5 +70,9 @@ export class ECLCommands {
                 vscode.window.showErrorMessage(reason);
             });
         }
+    }
+
+    importMod() {
+        importModFile();
     }
 }

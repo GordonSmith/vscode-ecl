@@ -14,15 +14,16 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "skipLibCheck": true,
+        "allowJs": true,
         "lib": [
             "dom",
             "ES2019"
         ]
     },
     "include": [
-        "./src/**/*.ts",
-        "./node_modules/vscode/vscode.d.ts",
-        "./node_modules/vscode-debugadapter/lib/*",
-        "./node_modules/vscode/lib/*"
+        "./src/**/*.*" //,
+        // "./node_modules/vscode/vscode.d.ts",
+        // "./node_modules/vscode-debugadapter/lib/*",
+        // "./node_modules/vscode/lib/*"
     ]
 }

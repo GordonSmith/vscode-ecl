@@ -37,7 +37,7 @@ class KelccErrors extends Errors {
                 if (match) {
                     continue;
                 }
-                logger.warning(`parseECLErrors:  Unable to parse "${errLine}"`);
+                logger.warning(`parseKELErrors:  Unable to parse "${errLine}"`);
                 this.errOther.push(errLine);
             }
         }

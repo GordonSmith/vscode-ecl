@@ -86,6 +86,7 @@
   "activationEvents": [
     "onLanguage:ecl",
     "onLanguage:kel",
+    "onLanguage:salt",
     "onLanguage:omd",
     "onLanguage:json"
   ],
@@ -215,6 +216,11 @@
         "description": "Opens ECL Client Tools Terminal Session."
       },
       {
+        "command": "ecl.importMod",
+        "title": "ECL: Import MOD File",
+        "description": "Import MOD file to local filesystem."
+      },
+      {
         "command": "kel.checkSyntax",
         "title": "KEL: Syntax Check",
         "description": "Save + check syntax of current file."
@@ -232,6 +238,26 @@
       {
         "command": "kel.selectCTVersion",
         "title": "KEL: Select Client Tools Version",
+        "description": "Select Client Tools Version from available options."
+      },
+      {
+        "command": "salt.checkSyntax",
+        "title": "SALT: Syntax Check",
+        "description": "Save + check syntax of current file."
+      },
+      {
+        "command": "salt.generate",
+        "title": "SALT: Generate",
+        "description": "Generate source from SALT file."
+      },
+      {
+        "command": "salt.reveal",
+        "title": "SALT: Reveal Generated ECL in File Explorer",
+        "description": "Reveals Generated ECL in File Explorer."
+      },
+      {
+        "command": "salt.selectCTVersion",
+        "title": "SALT: Select Client Tools Version",
         "description": "Select Client Tools Version from available options."
       },
       {
@@ -379,6 +405,18 @@
         "key": "f5",
         "mac": "f5",
         "when": "editorTextFocus && editorLangId == kel"
+      },
+      {
+        "command": "salt.checkSyntax",
+        "key": "f7",
+        "mac": "f7",
+        "when": "editorTextFocus && editorLangId == salt"
+      },
+      {
+        "command": "salt.generate",
+        "key": "f5",
+        "mac": "f5",
+        "when": "editorTextFocus && editorLangId == salt"
       },
       {
         "command": "omd.view",
@@ -540,6 +578,48 @@
           "description": "Generate ECL on save."
         },
         "kel.syntaxCheckOnLoad": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Check syntax on load."
+        },
+        "salt.javaArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Java runtime arguments (e.g. -Xmx12G).",
+          "default": []
+        },
+        "salt.kelPath": {
+          "type": "string",
+          "scope": "resource",
+          "default": "",
+          "description": "Override KEL auto detection."
+        },
+        "salt.syntaxCheckOnSave": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": true,
+          "description": "Check syntax on save."
+        },
+        "salt.generateLocation": {
+          "type": "string",
+          "scope": "resource",
+          "enum": [
+            "Same Folder",
+            "Child Folder"
+          ],
+          "default": "Same Folder",
+          "description": "Generated ECL location."
+        },
+        "salt.generateOnSave": {
+          "type": "boolean",
+          "scope": "resource",
+          "default": false,
+          "description": "Generate ECL on save."
+        },
+        "salt.syntaxCheckOnLoad": {
           "type": "boolean",
           "scope": "resource",
           "default": false,
