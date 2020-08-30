@@ -1,4 +1,4 @@
-import { AccountService, Activity, VerifyUser, Workunit, WUQuery, WUUpdate } from "@hpcc-js/comms";
+import { AccountService, Activity, VerifyUser, Workunit, WUQuery, WUUpdate, Topology, TargetCluster } from "@hpcc-js/comms";
 import { setTimeout } from "timers";
 import { DebugProtocol } from "vscode-debugprotocol";
 
@@ -15,6 +15,8 @@ export enum LaunchConfigState {
 }
 
 export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
+    name: string;
+    type: "ecl";
     debugLogging?: boolean;
     mode?: LaunchMode;
     program: string;
@@ -143,7 +145,7 @@ export class LaunchConfig {
         });
     }
 
-    query(opts: WUQuery.Request): Promise<Workunit[]> {
+    wuQuery(opts: WUQuery.Request): Promise<Workunit[]> {
         return Workunit.query({
             baseUrl: this.espUrl(),
             userID: this._config.user,
@@ -151,6 +153,17 @@ export class LaunchConfig {
             rejectUnauthorized: this._config.rejectUnauthorized,
             timeoutSecs: this._config.timeoutSecs
         }, opts);
+    }
+
+    targetClusters(): Promise<TargetCluster[]> {
+        const topology = new Topology({
+            baseUrl: this.espUrl(),
+            userID: this._config.user,
+            password: this._config.password,
+            rejectUnauthorized: this._config.rejectUnauthorized,
+            timeoutSecs: this._config.timeoutSecs
+        });
+        return topology.fetchTargetClusters();
     }
 
     espUrl() {

@@ -137,7 +137,7 @@ The following KEL specific commands are available.  Note:  These commands will *
 #### Within the KEL Code Editor:
 
 * Syntax Check **[F7]** - _Save + check syntax of current file._
-* Generate ECL **[Ff]** - _Save + generate ECL files._
+* Generate ECL **[F5]** - _Save + generate ECL files._
 
 #### Within the Status Bar
 _Click on KEL Client Tools Version_

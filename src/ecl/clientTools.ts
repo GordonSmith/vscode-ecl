@@ -3,7 +3,7 @@ import { QuickPickItem, window, workspace } from "vscode";
 import { eclStatusBar } from "./status";
 
 function showEclStatus(version: string, overriden: boolean, tooltip: string) {
-    eclStatusBar.showEclStatus(`${overriden ? "*" : ""}${version}`, tooltip);
+    eclStatusBar.showClientTools(`${overriden ? "*" : ""}${version}`, tooltip);
 }
 
 export function locateClientTools(build?: string, cwd?: string, includeFolders?: string[], legacyMode?: boolean): Promise<ClientTools> {

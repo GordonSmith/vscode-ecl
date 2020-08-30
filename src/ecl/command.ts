@@ -1,8 +1,10 @@
 import * as vscode from "vscode";
+import { LaunchConfig } from "../debugger/launchConfig";
 import { checkTextDocument, checkWorkspace } from "./check";
 import { selectCTVersion } from "./clientTools";
 import { eclDiagnostic } from "./diagnostic";
-import { encodeLocation } from "./watch";
+import { session } from "./session";
+import { eclWatchPanelView } from "./eclWatchPanelView";
 
 export let eclCommands: ECLCommands;
 export class ECLCommands {
@@ -10,12 +12,13 @@ export class ECLCommands {
 
     private constructor(ctx: vscode.ExtensionContext) {
         this._ctx = ctx;
+        ctx.subscriptions.push(vscode.commands.registerCommand("ecl.checkSubmit", this.submit));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.checkSyntax", this.checkSyntax));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.checkSyntaxAll", this.checkSyntaxAll));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.checkSyntaxClear", this.checkSyntaxClear));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.showLanguageReference", this.showLanguageReference));
         ctx.subscriptions.push(vscode.commands.registerTextEditorCommand("ecl.searchTerm", this.searchTerm));
-        ctx.subscriptions.push(vscode.commands.registerCommand("ecl.openWUDetails", this.openWUDetails));
+        ctx.subscriptions.push(vscode.commands.registerCommand("ecl.openECLWatch", this.openECLWatch));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.selectCTVersion", selectCTVersion));
     }
 
@@ -24,6 +27,13 @@ export class ECLCommands {
             eclCommands = new ECLCommands(ctx);
         }
         return eclCommands;
+    }
+
+    submit() {
+        if (vscode.window.activeTextEditor) {
+            vscode.window.activeTextEditor.document.save();
+            session.submit(vscode.window.activeTextEditor.document);
+        }
     }
 
     checkSyntax() {
@@ -57,16 +67,7 @@ export class ECLCommands {
         }
     }
 
-    openWUDetails(url: string, wuid: string) {
-        const eclConfig = vscode.workspace.getConfiguration("ecl");
-        if (eclConfig.get<boolean>("WUOpenExternal")) {
-            vscode.env.openExternal(vscode.Uri.parse(url));
-        } else {
-            const uri = encodeLocation(url, wuid);
-            return vscode.commands.executeCommand("vscode.previewHtml", uri, vscode.ViewColumn.Two, wuid).then((success) => {
-            }, (reason) => {
-                vscode.window.showErrorMessage(reason);
-            });
-        }
+    openECLWatch(launchConfig: LaunchConfig, title: string, wuid: string, result?: number) {
+        eclWatchPanelView.navigateTo(launchConfig, title, wuid, result);
     }
 }

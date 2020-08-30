@@ -194,6 +194,7 @@ export class ECLDebugSession extends DebugSession {
             });
         }).then(([wu, archive]) => {
             this.sendEvent(new Event("WUCreated", { ...this.launchConfig._config, wuid: wu.Wuid }));
+            // eslint-disable-next-line no-async-promise-executor
             return new Promise<Workunit>(async (resolve, reject) => {
                 const attempts = 3;
                 let lastError;
