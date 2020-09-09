@@ -5,7 +5,7 @@
   "publisher": "hpcc-systems",
   "displayName": "ECL Language",
   "description": "ECL (Enterprise Control Language) support for Visual Studio Code",
-  "icon": "images/eclIcon.png",
+  "icon": "resources/eclIcon.png",
   "categories": [
     "Programming Languages",
     "Snippets",
@@ -94,7 +94,6 @@
     "vscode.json"
   ],
   "activationEvents": [
-    "*",
     "onLanguage:ecl",
     "onLanguage:kel",
     "onLanguage:omd",
@@ -321,32 +320,32 @@
         "command": "omd.view",
         "title": "View ECL Markdown",
         "icon": {
-          "dark": "./images/omd-view-dark.svg",
-          "light": "./images/omd-view.svg"
+          "dark": "./resources/dark/omd-view.svg",
+          "light": "./resources/light/omd-view.svg"
         }
       },
       {
         "command": "omd.export",
         "title": "Export ECL Markdown to HTML",
         "icon": {
-          "dark": "./images/omd-export-dark.svg",
-          "light": "./images/omd-export.svg"
+          "dark": "./resources/dark/omd-export.svg",
+          "light": "./resources/light/omd-export.svg"
         }
       },
       {
         "command": "dashy.view",
         "title": "View Dashboard",
         "icon": {
-          "dark": "./images/dashy-view-dark.svg",
-          "light": "./images/dashy-view.svg"
+          "dark": "./resources/dark/dashy-view.svg",
+          "light": "./resources/light/dashy-view.svg"
         }
       },
       {
         "command": "dashy.edit",
         "title": "Edit Dashboard",
         "icon": {
-          "dark": "./images/dashy-edit-dark.svg",
-          "light": "./images/dashy-edit.svg"
+          "dark": "./resources/dark/dashy-edit.svg",
+          "light": "./resources/light/dashy-edit.svg"
         }
       }
     ],
@@ -542,48 +541,32 @@
         {
           "id": "hpccPlatform",
           "name": "HPCC Platform",
-          "icon": "images/ecl-explorer.svg",
-          "contextualTitle": "HPCC Platform"
-        }
-      ],
-      "ecl-explorer": [
-        {
-          "id": "eclWatch",
-          "name": "ECL Watch (old)"
+          "icon": "resources/ecl-explorer.svg",
+          "contextualTitle": "HPCC Platform",
+          "when": "resourceLangId == ecl"
         }
       ],
       "ecl-watch-lite": [
         {
           "type": "webview",
           "id": "ecl.watch.lite",
-          "name": ""
+          "name": "",
+          "when": "resourceLangId == ecl"
         }
       ]
     },
     "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "ecl-explorer",
-          "title": "hpcc-systems",
-          "icon": "images/ecl-explorer.svg"
-        }
-      ],
+      "activitybar": [],
       "panel": [
         {
           "id": "ecl-watch-lite",
           "title": "HPCC",
-          "icon": "images/ecl-explorer.svg"
+          "icon": "resources/ecl-explorer.svg",
+          "when": "resourceLangId == ecl"
         }
       ]
     },
-    "customEditors": [
-      {
-        "viewType": "cowsay",
-        "displayName": "Web Site",
-        "selector": [],
-        "priority": "default"
-      }
-    ],
+    "customEditors": [],
     "breakpoints": [
       {
         "language": "ecl"
@@ -636,18 +619,6 @@
           "scope": "resource",
           "default": false,
           "description": "Add '-legacy' argument to eclcc."
-        },
-        "ecl.WUOpenExternal": {
-          "type": "boolean",
-          "scope": "resource",
-          "default": false,
-          "description": "Open Workunits in external browser."
-        },
-        "ecl.WUAutoOpen": {
-          "type": "boolean",
-          "scope": "resource",
-          "default": false,
-          "description": "Automatically open Workunits on creation."
         },
         "ecl.debugLogging": {
           "type": "boolean",

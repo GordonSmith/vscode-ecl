@@ -3,8 +3,7 @@ import * as vscode from "vscode";
 import type { Messages } from "../eclwatch";
 import { LaunchConfig } from "./util";
 
-const simpleColorRegularExpression = /#?([0-9a-f]{3}|[0-9a-f]{6})/gi;
-
+type NavigateParams = { launchConfig: LaunchConfig, title: string, wuid: string, result?: number };
 export let eclWatchPanelView: ECLWatchPanelView;
 export class ECLWatchPanelView implements vscode.WebviewViewProvider {
 
@@ -42,11 +41,14 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         return eclWatchPanelView;
     }
 
+    private _prevParams: { launchConfig: LaunchConfig, title: string, wuid: string, result?: number };
     public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken) {
         this._webviewView = webviewView;
 
         this._webviewView.onDidChangeVisibility(e => {
-            this._webviewView.title = this._webviewView.visible ? this._prevTitle : "";
+            if (!this._webviewView.visible) {
+                this._webviewView.title = "";
+            }
         });
 
         this._webviewView.webview.options = {
@@ -60,6 +62,9 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         this._webviewView.webview.onDidReceiveMessage((message: Messages) => {
             switch (message.command) {
                 case "loaded":
+                    if (this._prevParams) {
+                        this.navigateTo(this._prevParams.launchConfig, this._prevParams.title, this._prevParams.wuid, this._prevParams.result);
+                    }
                     break;
             }
         });
@@ -68,15 +73,18 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     }
 
     private _prevHash: string;
-    private _prevTitle: string;
     navigateTo(launchConfig: LaunchConfig, title: string, wuid: string, result?: number) {
-        const params = { config: launchConfig._config, title, wuid, result };
-        const hash = hashSum(params);
-        if (this._prevHash !== hash) {
-            this._prevHash = hash;
-            this._prevTitle = title;
-            this._webviewView.title = title;
-            this._webviewView.webview.postMessage({ command: "navigate", data: params });
+        const params: NavigateParams = { launchConfig, title, wuid, result };
+        if (this._webviewView) {
+            const hash = hashSum(params);
+            if (this._prevHash !== hash) {
+                this._prevHash = hash;
+                this._webviewView.title = title;
+                this._webviewView.webview.postMessage({ command: "navigate", data: params });
+                vscode.commands.executeCommand("ecl.watch.lite.focus");
+            }
+        } else {
+            this._prevParams = params;
             vscode.commands.executeCommand("ecl.watch.lite.focus");
         }
     }

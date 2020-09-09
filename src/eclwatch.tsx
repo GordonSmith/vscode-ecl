@@ -38,7 +38,7 @@ window.addEventListener("message", function (event) {
     const message = event.data; // The JSON data our extension sent
     switch (message.command) {
         case "navigate":
-            render(message.data.config.protocol, message.data.config.serverAddress, message.data.config.port, message.data.wuid, message.data.result);
+            render(message.data.launchConfig._config.protocol, message.data.launchConfig._config.serverAddress, message.data.launchConfig._config.port, message.data.wuid, message.data.result);
             break;
     }
 });

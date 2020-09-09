@@ -162,7 +162,6 @@ export class ECLWUNode extends ECLNode {
         if (!this._wu.isComplete()) {
             let prevStateID;
             this._wu.watchUntilComplete(changes => {
-                console.log("Tree Mon:  " + prevStateID);
                 if (prevStateID !== this._wu.StateID) {
                     prevStateID = this._wu.StateID;
                     this._tree._onDidChangeTreeData.fire(this);
@@ -352,59 +351,80 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             return element.getChildren();
         }
 
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-        const retVal: ECLNode[] = [];
-
-        //  Days
-        let currDate = now.getDate() - 1;
-        let curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-        while (curr.getDay() !== 5) {
-            retVal.push(new ECLDateRangeNode(this, getDayName(curr), curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1)));
-            curr = new Date(now.getFullYear(), now.getMonth(), --currDate);
-        }
-
-        //  Weeks
-        let idx = 0;
-        currDate -= 7;
-        curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-        retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
-        while (curr.getMonth() === now.getMonth()) {
-            currDate -= 7;
-            curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-            retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
-        }
-
-        //  Months
-        idx = 0;
-        let currMonth = now.getMonth() - 1;
-        curr = new Date(now.getFullYear(), currMonth, 1);
-        while (curr.getFullYear() === now.getFullYear() || idx < 1) {
-            ++idx;
-            retVal.push(new ECLDateRangeNode(this, getMonthName(curr), curr, new Date(curr.getFullYear(), curr.getMonth() + 1, 1)));
-            curr = new Date(now.getFullYear(), --currMonth, 1);
-        }
-
-        //  Years
-        let currYear = now.getFullYear() - 1;
-        curr = new Date(currYear, 0, 1);
-        while (curr.getFullYear() > 2004) {
-            retVal.push(new ECLDateRangeNode(this, `${currYear}`, curr, new Date(curr.getFullYear() + 1, 0, 1)));
-            curr = new Date(--currYear, 0, 1);
-        }
-
-        //  Today
         return session.wuQuery({
             Owner: this._myWorkunits ? session.userID : undefined,
-            StartDate: today.toISOString(),
-            Count: 999999
-        }).then(workunits => {
-            // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
-            return [...workunits.map(wu => new ECLWUNode(this, wu)), ...retVal];
-        }).catch(e => {
-            // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
-            return [new ECLErrorNode(this, e)];
+            Sortby: "Wuid",
+            Descending: false,
+            Count: 1
+        }).then(r => {
+            let year = 1970;
+            let month = 0;
+            let day = 1;
+            if (r.length) {
+                const wuid = r[0].Wuid;
+                year = parseInt(wuid.substring(1, 5));
+                month = parseInt(wuid.substring(5, 7)) - 1;
+                day = parseInt(wuid.substring(7, 9));
+            }
+            const oldestDay = new Date(year, month, day);
+            const oldestWeek = new Date(year, month, day - 7);
+            const oldestMonth = new Date(year, month, 1);
+            const oldestYear = new Date(year, 0, 1);
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const retVal: ECLNode[] = [];
+
+            //  Days
+            let currDate = now.getDate() - 1;
+            let curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+            while (curr.getDay() !== 5 && curr >= oldestDay) {
+                retVal.push(new ECLDateRangeNode(this, getDayName(curr), curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1)));
+                curr = new Date(now.getFullYear(), now.getMonth(), --currDate);
+            }
+
+            //  Weeks
+            let idx = 0;
+            currDate -= 6;
+            curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+            retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
+            while (curr.getMonth() === now.getMonth() && curr >= oldestWeek) {
+                currDate -= 7;
+                curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+                retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
+            }
+
+            //  Months
+            idx = 0;
+            let currMonth = now.getMonth() - 1;
+            curr = new Date(now.getFullYear(), currMonth, 1);
+            while ((curr.getFullYear() === now.getFullYear() || idx < 1) && curr >= oldestMonth) {
+                ++idx;
+                retVal.push(new ECLDateRangeNode(this, getMonthName(curr), curr, new Date(curr.getFullYear(), curr.getMonth() + 1, 1)));
+                curr = new Date(now.getFullYear(), --currMonth, 1);
+            }
+
+            //  Years
+            let currYear = now.getFullYear() - 1;
+            curr = new Date(currYear, 0, 1);
+            while (curr >= oldestYear) {
+                retVal.push(new ECLDateRangeNode(this, `${currYear}`, curr, new Date(curr.getFullYear() + 1, 0, 1)));
+                curr = new Date(--currYear, 0, 1);
+            }
+
+            //  Today
+            return session.wuQuery({
+                Owner: this._myWorkunits ? session.userID : undefined,
+                StartDate: today.toISOString(),
+                Count: 999999
+            }).then(workunits => {
+                // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
+                return [...workunits.map(wu => new ECLWUNode(this, wu)), ...retVal];
+            }).catch(e => {
+                // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
+                return [new ECLErrorNode(this, e)];
+            });
         });
     }
 }
