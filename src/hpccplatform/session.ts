@@ -1,16 +1,14 @@
+import type { WUQuery, TargetCluster, Workunit } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { LaunchRequestArguments, LaunchConfig } from "./launchConfig";
-import { WUQuery, TargetCluster, Workunit } from "@hpcc-js/comms";
+import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultsUrl } from "./launchConfig";
 import { eclConfigurationProvider } from "./configProvider";
 import { submit } from "./workunit";
 import { eclCommands } from "../ecl/command";
 
 class Session {
-
-    private _launchRequestArgs: LaunchRequestArguments;
-    private _launchConfig: LaunchConfig;
-    private _targetClusters: TargetCluster[] = [];
-    private _targetCluster: TargetCluster;
+    private _launchRequestArgs?: LaunchRequestArguments;
+    private _launchConfig?: LaunchConfig;
+    private _targetCluster: string;
 
     private _onDidChangeSession: vscode.EventEmitter<LaunchRequestArguments> = new vscode.EventEmitter<LaunchRequestArguments>();
     readonly onDidChangeSession: vscode.Event<LaunchRequestArguments> = this._onDidChangeSession.event;
@@ -37,6 +35,7 @@ class Session {
             arguments: [],
             title: "Switch HPCC Platform."
         };
+
         this._statusBarTargetCluster = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE);
         this._statusBarTargetCluster.command = {
             command: "hpccPlatform.switchTargetCluster",
@@ -47,16 +46,16 @@ class Session {
         vscode.debug.onDidReceiveDebugSessionCustomEvent(async event => {
             switch (event.event) {
                 case "LaunchRequest":
-                    if (session.name !== event.session.name) {
-                        session.switchTo(event.session.name, event.session.configuration.targetCluster);
+                    if (this.name !== event.session.name) {
+                        this.switchTo(event.session.name, event.session.configuration.targetCluster);
                     }
                     submit(event.session.configuration as unknown as LaunchRequestArguments).then(wu => {
-                        vscode.commands.executeCommand("ecl.openECLWatch", session.launchRequestArgs, wu.Wuid, wu.Wuid);
+                        vscode.commands.executeCommand("ecl.openECLWatch", this.launchRequestArgs, wu.Wuid, wu.Wuid);
                     });
                     break;
                 case "WUCreated":
-                    if (session.name !== event.session.name) {
-                        session.switchTo(event.session.name, event.session.configuration.targetCluster);
+                    if (this.name !== event.session.name) {
+                        this.switchTo(event.session.name, event.session.configuration.targetCluster);
                     }
                     break;
             }
@@ -65,27 +64,27 @@ class Session {
         vscode.commands.registerCommand("hpccPlatform.switch", async () => {
             this.switch();
         });
+
         vscode.commands.registerCommand("hpccPlatform.switchTargetCluster", async () => {
             this.switchTargetCluster();
         });
+
         vscode.commands.registerCommand("hpccPlatform.eclwatch", async () => {
-            if (this._launchConfig) {
-                vscode.env.openExternal(vscode.Uri.parse(`${this._launchConfig.espUrl()}/esp/files/stub.htm`));
-            }
+            vscode.env.openExternal(vscode.Uri.parse(`${espUrl(this._launchRequestArgs)}/esp/files/stub.htm`));
         });
+
         vscode.commands.registerCommand("ecl.submit", () => {
             this.submit(vscode.window.activeTextEditor.document);
         });
+        this.switchTo();
     }
 
     wuDetailsUrl(wuid: string) {
-        if (this._launchConfig) {
-            return this._launchConfig.wuDetailsUrl(wuid);
-        }
+        return wuDetailsUrl(this._launchRequestArgs, wuid);
     }
 
     wuResultsUrl(wuid: string, sequence: number) {
-        return `${this._launchConfig.espUrl()}/?Widget=ResultWidget&Wuid=${wuid}&Sequence=${sequence}`;
+        return wuResultsUrl(this._launchRequestArgs, wuid, sequence);
     }
 
     wuQuery(request: WUQuery.Request): Promise<Workunit[]> {
@@ -101,7 +100,7 @@ class Session {
 
         const debugSession: LaunchRequestArguments = {
             ...this._launchRequestArgs,
-            targetCluster: this._targetCluster.Name
+            targetCluster: this._targetCluster
         };
         eclConfigurationProvider.localResolveDebugConfiguration(doc, debugSession).then(debugSession => {
             submit(debugSession).then(wu => {
@@ -135,33 +134,18 @@ class Session {
         return retVal;
     }
 
-    async switchTo(name?: string, targetCluster?: string) {
-        let retVal = false;
+    switchTo(name?: string, targetCluster?: string) {
         if (!this._launchRequestArgs || this._launchRequestArgs.name !== name) {
-            const configs: LaunchRequestArguments[] = session.configurations();
-            const launchConfigArgs = configs.filter(c => c.name === name)[0] || configs[0];
-            if (launchConfigArgs) {
-                retVal = await eclConfigurationProvider.checkCredentials(launchConfigArgs);
-            }
-            if (retVal) {
-                this._launchRequestArgs = launchConfigArgs;
-                this._launchConfig = this._launchRequestArgs ? new LaunchConfig(this._launchRequestArgs) : undefined;
-                this.refreshStatusBar();
-                this._targetClusters = this._launchConfig ? await this._launchConfig.targetClusters() : [];
-            }
-        } else {
-            retVal = true;
+            const configs: LaunchRequestArguments[] = this.configurations();
+            this._launchRequestArgs = configs.filter(c => c.name === name)[0] || configs[0];
+            this._launchConfig = this._launchRequestArgs ? new LaunchConfig(this._launchRequestArgs) : undefined;
+            this.refreshStatusBar();
         }
-        if (targetCluster) {
-            this._targetCluster = this._targetClusters.filter(tc => tc.Name === targetCluster)[0] || this._targetClusters.filter(tc => tc.IsDefault === true)[0] || this._targetClusters[0];
-        } else {
-            this._targetCluster = this._targetClusters.filter(tc => tc.Name === this._launchRequestArgs.targetCluster)[0] || this._targetClusters.filter(tc => tc.IsDefault === true)[0] || this._targetClusters[0];
-        }
+        this._targetCluster = targetCluster || this._launchRequestArgs?.targetCluster || undefined;
         this.refreshTCStatusBar();
-        if (retVal) {
+        if (this._launchRequestArgs) {
             this._onDidChangeSession.fire(this._launchRequestArgs);
         }
-        return retVal;
     }
 
     switch(): void {
@@ -213,8 +197,8 @@ class Session {
     }
 
     refreshTCStatusBar() {
-        this._statusBarTargetCluster.text = this._targetCluster?.Name;
-        this._statusBarTargetCluster.tooltip = this._targetCluster?.Type;
+        this._statusBarTargetCluster.text = this._targetCluster;
+        this._statusBarTargetCluster.tooltip = this._targetCluster;
         this._targetCluster ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
     }
 }

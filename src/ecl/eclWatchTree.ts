@@ -24,7 +24,6 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
         });
 
         session.onDidChangeSession(launchConfigArgs => {
-            this._treeView.title = launchConfigArgs.name;
             this.refresh();
         });
 
@@ -73,17 +72,21 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             return element.getChildren();
         }
 
+        this._treeView.title = session.name;
         return session.wuQuery({
             Owner: this._myWorkunits ? session.userID : undefined,
             Sortby: "Wuid",
             Descending: false,
             Count: 1
-        }).then(r => {
+        }).then(workunits => {
+            if (workunits.length === 0) {
+                return [];
+            }
             let year = 1970;
             let month = 0;
             let day = 1;
-            if (r.length) {
-                const wuid = r[0].Wuid;
+            if (workunits.length) {
+                const wuid = workunits[0].Wuid;
                 year = parseInt(wuid.substring(1, 5));
                 month = parseInt(wuid.substring(5, 7)) - 1;
                 day = parseInt(wuid.substring(7, 9));
@@ -141,12 +144,12 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
                 StartDate: today.toISOString(),
                 Count: 999999
             }).then(workunits => {
-                // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
                 return [...workunits.map(wu => new ECLWUNode(this, wu)), ...retVal];
             }).catch(e => {
-                // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
                 return [new ECLErrorNode(this, e)];
             });
+        }).catch(e => {
+            return [new ECLErrorNode(this, e)];
         });
     }
 }
@@ -398,10 +401,8 @@ export class ECLDateRangeNode extends ECLNode {
             EndDate: this._to.toISOString(),
             Count: 999999
         }).then(workunits => {
-            // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
             return workunits.map(wu => new ECLWUNode(this._tree, wu));
         }).catch(e => {
-            // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
             return [];
         });
     }

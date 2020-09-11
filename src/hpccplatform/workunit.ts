@@ -1,6 +1,6 @@
 import { EclccErrors, locateClientTools, Workunit } from "@hpcc-js/comms";
 import { scopedLogger } from "@hpcc-js/util";
-import { LaunchConfig, LaunchRequestArguments } from "./launchConfig";
+import { LaunchConfig, LaunchRequestArguments, wuDetailsUrl } from "./launchConfig";
 
 import * as fs from "fs";
 import * as os from "os";
@@ -16,25 +16,25 @@ function xmlFile(programPath: string): Promise<{ err: EclccErrors, content: stri
     });
 }
 
-export function submit(args: LaunchRequestArguments) {
+export async function submit(args: LaunchRequestArguments) {
     logger.debug("launchRequest:  " + JSON.stringify(args));
     const launchConfig = new LaunchConfig(args);
     logger.info(`Fetch build version.${os.EOL}`);
-    const pathParts = path.parse(launchConfig._config.program);
+    const pathParts = path.parse(args.program);
     let failedWU: Workunit;
     return launchConfig.fetchBuild().then(build => {
         logger.info(`Locating Client Tools.${os.EOL}`);
-        return locateClientTools(launchConfig._config.eclccPath, build, launchConfig._config.workspace, launchConfig.includeFolders(), launchConfig.legacyMode());
+        return locateClientTools(args.eclccPath, build, args.workspace, launchConfig.includeFolders(), launchConfig.legacyMode());
     }).then((clientTools) => {
         logger.info(`Client Tools:  ${clientTools.eclccPath}.${os.EOL}`);
         logger.info(`Generating archive.${os.EOL}`);
         if (pathParts.ext.toLowerCase() === ".xml") {
-            return xmlFile(launchConfig._config.program);
+            return xmlFile(args.program);
         } else {
-            return clientTools.createArchive(launchConfig._config.program);
+            return clientTools.createArchive(args.program);
         }
     }).then(archive => {
-        if (launchConfig._config.abortSubmitOnError && archive.err.hasError()) {
+        if (args.abortSubmitOnError && archive.err.hasError()) {
             throw new Error(`ECL Syntax Error(s):\n  ${archive.err.errors().map(e => e.msg).join("\n  ")}`);
         }
         logger.info(`Archive Size: ${archive.content.length}.${os.EOL}`);
@@ -59,7 +59,7 @@ export function submit(args: LaunchRequestArguments) {
                         ApplicationValue: [{
                             Application: "vscode-ecl",
                             Name: "filePath",
-                            Value: launchConfig._config.program
+                            Value: args.program
                         }]
                     }
                 }).then(wu => {
@@ -73,9 +73,9 @@ export function submit(args: LaunchRequestArguments) {
         });
     }).then((workunit) => {
         logger.info(`Submitting workunit:  ${workunit.Wuid}.${os.EOL}`);
-        return workunit.submit(launchConfig._config.targetCluster, launchConfig.action(), launchConfig._config.resultLimit);
+        return workunit.submit(args.targetCluster, launchConfig.action(), args.resultLimit);
     }).then((workunit) => {
-        logger.info(`Submitted:  ${launchConfig.wuDetailsUrl(workunit.Wuid)}.${os.EOL}`);
+        logger.info(`Submitted:  ${wuDetailsUrl(args, workunit.Wuid)}.${os.EOL}`);
         failedWU = undefined;
         return workunit;
     }).catch((e) => {
