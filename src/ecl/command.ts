@@ -1,10 +1,11 @@
 import * as vscode from "vscode";
-import { LaunchConfig } from "../debugger/launchConfig";
+import { LaunchRequestArguments } from "../hpccplatform/launchConfig";
 import { checkTextDocument, checkWorkspace } from "./check";
 import { selectCTVersion } from "./clientTools";
 import { eclDiagnostic } from "./diagnostic";
-import { session } from "./session";
+import { session } from "../hpccplatform/session";
 import { eclWatchPanelView } from "./eclWatchPanelView";
+import { ECLResultNode, ECLWUNode } from "./eclWatchTree";
 
 export let eclCommands: ECLCommands;
 export class ECLCommands {
@@ -20,6 +21,7 @@ export class ECLCommands {
         ctx.subscriptions.push(vscode.commands.registerTextEditorCommand("ecl.searchTerm", this.searchTerm));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.openECLWatch", this.openECLWatch));
         ctx.subscriptions.push(vscode.commands.registerCommand("ecl.selectCTVersion", selectCTVersion));
+        ctx.subscriptions.push(vscode.commands.registerCommand("ecl.openECLWatchExternal", this.openECLWatchExternal));
     }
 
     static attach(ctx: vscode.ExtensionContext): ECLCommands {
@@ -27,13 +29,6 @@ export class ECLCommands {
             eclCommands = new ECLCommands(ctx);
         }
         return eclCommands;
-    }
-
-    submit() {
-        if (vscode.window.activeTextEditor) {
-            vscode.window.activeTextEditor.document.save();
-            session.submit(vscode.window.activeTextEditor.document);
-        }
     }
 
     checkSyntax() {
@@ -55,6 +50,13 @@ export class ECLCommands {
         eclDiagnostic.clear();
     }
 
+    submit() {
+        if (vscode.window.activeTextEditor) {
+            vscode.window.activeTextEditor.document.save();
+            session.submit(vscode.window.activeTextEditor.document);
+        }
+    }
+
     showLanguageReference() {
         vscode.commands.executeCommand("vscode.open", vscode.Uri.parse("https://hpccsystems.com/training/documentation/ecl-language-reference/html"));
     }
@@ -67,7 +69,15 @@ export class ECLCommands {
         }
     }
 
-    openECLWatch(launchConfig: LaunchConfig, title: string, wuid: string, result?: number) {
-        eclWatchPanelView.navigateTo(launchConfig, title, wuid, result);
+    openECLWatch(launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number) {
+        eclWatchPanelView.navigateTo(launchRequestArgs, title, wuid, result);
+    }
+
+    openECLWatchExternal(source: ECLWUNode | ECLResultNode) {
+        if (source instanceof ECLWUNode) {
+            vscode.env.openExternal(vscode.Uri.parse(source.url));
+        } else if (source instanceof ECLResultNode) {
+            vscode.env.openExternal(vscode.Uri.parse(source.url));
+        }
     }
 }

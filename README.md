@@ -1,6 +1,16 @@
 # ECL for Visual Studio Code
 _For list of latest changes, please see the  [Change Log](https://github.com/hpcc-systems/vscode-ecl/blob/master/CHANGELOG.md) at the main [GitHub](https://github.com/hpcc-systems/vscode-ecl) repository._
 
+## Version 2.0.0 Highlights
+
+* Integrated Workunit Tree
+* Integrated Workunit Results
+* Simpler submit mechanism:
+  * Seleect HPCC PLatform from status bar
+  * Select Target Cluster from status bar
+  * Submit directy from ECL Editor
+
+
 This extension adds rich language support for [HPCC Systems](https://hpccsystems.com/) [ECL language](https://hpccsystems.com/training/documentation/ecl-language-reference/html) (for the [HPCC-Platform](https://github.com/hpcc-systems/HPCC-Platform)) to VS Code, including:
 
 * Syntax highlighting
@@ -29,6 +39,7 @@ The following ECL specific commands are available.  Note:  These commands will *
 
 #### Within the ECL Code Editor:
 
+* Submit **[F5]** - _Save + submit current file._
 * Syntax Check **[F7]** - _Save + check syntax of current file._
 * Language Reference Lookup **[shift + F1]** - _For the currently selected text, search the online ECL language reference._
 

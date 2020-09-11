@@ -1,44 +1,14 @@
 import { AccountService, Activity, VerifyUser, Workunit, WUQuery, WUUpdate, Topology, TargetCluster } from "@hpcc-js/comms";
-import { setTimeout } from "timers";
-import { DebugProtocol } from "vscode-debugprotocol";
+import { LaunchConfigState, LaunchRequestArguments } from "../debugger/launchRequestArguments";
 
-// This interface should always match the schema found in `package.json`.
-export type LaunchMode = "submit" | "compile" | "publish" | "debug";
-export type LaunchProtocol = "http" | "https";
-export type LaunchLegacyMode = "true" | "false" | "";
-
-export enum LaunchConfigState {
-    Unknown,
-    Unreachable,
-    Credentials,
-    Ok
-}
-
-export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
-    name: string;
-    type: "ecl";
-    debugLogging?: boolean;
-    mode?: LaunchMode;
-    program: string;
-    workspace: string;
-    protocol: LaunchProtocol;
-    serverAddress: string;
-    port: number;
-    abortSubmitOnError?: boolean;
-    rejectUnauthorized?: boolean;
-    targetCluster: string;
-    eclccPath?: string;
-    eclccArgs?: string[];
-    includeFolders?: string;
-    legacyMode?: LaunchLegacyMode;
-    resultLimit?: number;
-    timeoutSecs?: number;
-    user?: string;
-    password?: string;
-}
+export {
+    LaunchRequestArguments
+};
 
 export class LaunchConfig {
+
     _config: LaunchRequestArguments;
+
     constructor(args: any) {
         this._config = {
             ...args,
@@ -89,7 +59,7 @@ export class LaunchConfig {
         return this._config.includeFolders!.split(",");
     }
 
-    async verifyUser(userID: string, password: string): Promise<VerifyUser.Response> {
+    verifyUser(userID: string, password: string): Promise<VerifyUser.Response> {
         const acService = new AccountService({
             baseUrl: this.espUrl(),
             userID,

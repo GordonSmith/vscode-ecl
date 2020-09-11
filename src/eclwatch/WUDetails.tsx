@@ -30,6 +30,8 @@ const getTabId = (itemKey: string) => {
 
 export interface WUDetailsProps {
     baseUrl: string;
+    user: string;
+    password: string;
     wuid: string;
     sequence?: number;
     width: number;
@@ -38,6 +40,8 @@ export interface WUDetailsProps {
 
 export const WUDetails: React.FunctionComponent<WUDetailsProps> = ({
     baseUrl,
+    user,
+    password,
     wuid,
     sequence,
     width,
@@ -57,7 +61,7 @@ export const WUDetails: React.FunctionComponent<WUDetailsProps> = ({
     const [results, setResults] = React.useState<Result[]>([]);
 
     React.useEffect(() => {
-        const wu = Workunit.attach({ baseUrl }, wuid);
+        const wu = Workunit.attach({ baseUrl, userID: user, password }, wuid);
         if (wu.isComplete()) {
             wu.fetchECLExceptions().then(exceptions => setExceptions([...exceptions]));
             wu.fetchResults().then(results => setResults([...results]));
@@ -110,7 +114,7 @@ export const WUDetails: React.FunctionComponent<WUDetailsProps> = ({
             selectedKey === "issues" || (selectedKey === undefined && hasIssues) ?
                 <WUIssues exceptions={exceptions} width={width} height={bodyHeight} />
                 : results.length > 0 && bodyHeight > 0 ?
-                    <WUResult baseUrl={baseUrl} wuid={wuid} sequence={results.length > parseInt(selectedKey) ? parseInt(selectedKey) : 0} width={width} height={bodyHeight} />
+                    <WUResult baseUrl={baseUrl} user={user} password={password} wuid={wuid} sequence={results.length > parseInt(selectedKey) ? parseInt(selectedKey) : 0} width={width} height={bodyHeight} />
                     : undefined
         }
     </>;

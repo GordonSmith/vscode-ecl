@@ -1,9 +1,9 @@
 import { hashSum } from "@hpcc-js/util";
 import * as vscode from "vscode";
+import { LaunchConfig, LaunchRequestArguments } from "../hpccplatform/launchConfig";
 import type { Messages } from "../eclwatch";
-import { LaunchConfig } from "./util";
 
-type NavigateParams = { launchConfig: LaunchConfig, title: string, wuid: string, result?: number };
+type NavigateParams = { launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number };
 export let eclWatchPanelView: ECLWatchPanelView;
 export class ECLWatchPanelView implements vscode.WebviewViewProvider {
 
@@ -22,16 +22,6 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
                 retainContextWhenHidden: true
             }
         }));
-
-        vscode.debug.onDidReceiveDebugSessionCustomEvent(event => {
-            switch (event.event) {
-                case "WUCreated":
-                    const launchConfig = new LaunchConfig(event.body);
-                    const url = launchConfig.wuDetailsUrl(event.body.wuid);
-                    this.navigateTo(launchConfig, event.body.wuid, event.body.wuid);
-                    break;
-            }
-        }, null, ctx.subscriptions);
     }
 
     static attach(ctx: vscode.ExtensionContext): ECLWatchPanelView {
@@ -41,7 +31,7 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         return eclWatchPanelView;
     }
 
-    private _prevParams: { launchConfig: LaunchConfig, title: string, wuid: string, result?: number };
+    private _prevParams: NavigateParams;
     public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken) {
         this._webviewView = webviewView;
 
@@ -63,7 +53,7 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
             switch (message.command) {
                 case "loaded":
                     if (this._prevParams) {
-                        this.navigateTo(this._prevParams.launchConfig, this._prevParams.title, this._prevParams.wuid, this._prevParams.result);
+                        this.navigateTo(this._prevParams.launchRequestArgs, this._prevParams.title, this._prevParams.wuid, this._prevParams.result);
                     }
                     break;
             }
@@ -73,8 +63,8 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     }
 
     private _prevHash: string;
-    navigateTo(launchConfig: LaunchConfig, title: string, wuid: string, result?: number) {
-        const params: NavigateParams = { launchConfig, title, wuid, result };
+    navigateTo(launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number) {
+        const params: NavigateParams = { launchRequestArgs, title, wuid, result };
         if (this._webviewView) {
             const hash = hashSum(params);
             if (this._prevHash !== hash) {

@@ -1,9 +1,155 @@
 import { Workunit, WUStateID, Result } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { LaunchConfigState } from "../debugger/launchConfig";
-import { session } from "./session";
+import { session } from "../hpccplatform/session";
 
-export let hpccPlatform: ECLWatchTree;
+export let eclWatchTree: ECLWatchTree;
+
+const PrevWeeks: string[] = ["Last Week", "Two Weeks Ago", "Three Weeks Ago", "Four Weeks Ago", "Five Weeks Ago", "Six Weeks Ago", "Seven Weeks Ago"];
+
+export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
+    _ctx: vscode.ExtensionContext;
+
+    _onDidChangeTreeData: vscode.EventEmitter<ECLNode | null> = new vscode.EventEmitter<ECLNode | null>();
+    readonly onDidChangeTreeData: vscode.Event<ECLNode | null> = this._onDidChangeTreeData.event;
+
+    private _treeView: vscode.TreeView<ECLNode>;
+    _myWorkunits = true;
+
+    private constructor(ctx: vscode.ExtensionContext) {
+        this._ctx = ctx;
+
+        this._treeView = vscode.window.createTreeView("hpccPlatform", {
+            treeDataProvider: this,
+            showCollapseAll: true
+        });
+
+        session.onDidChangeSession(launchConfigArgs => {
+            this._treeView.title = launchConfigArgs.name;
+            this.refresh();
+        });
+
+        vscode.commands.registerCommand("hpccPlatform.myWorkunits", async () => {
+            this._myWorkunits = true;
+            this.refresh();
+        });
+
+        vscode.commands.registerCommand("hpccPlatform.allWorkunits", async () => {
+            this._myWorkunits = false;
+            this.refresh();
+        });
+
+        vscode.commands.registerCommand("hpccPlatform.refresh", () => {
+            this.refresh();
+        });
+
+        this._treeView.title = "Loading...";
+    }
+
+    static attach(ctx: vscode.ExtensionContext) {
+        if (!eclWatchTree) {
+            eclWatchTree = new ECLWatchTree(ctx);
+        }
+        return eclWatchTree;
+    }
+
+    refresh(): void {
+        this._onDidChangeTreeData.fire(undefined);
+    }
+
+    getTreeItem(node: ECLNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        if (!node._treeItem) {
+            node._treeItem = new vscode.TreeItem(node.getLabel(), node.initialCollapseState());
+            node._treeItem.contextValue = node.constructor.name;
+        } else {
+            node._treeItem.label = node.getLabel();
+        }
+        node._treeItem.iconPath = node.iconPath();
+        node._treeItem.command = node.command();
+        return node._treeItem;
+    }
+
+    getChildren(element?: ECLNode): vscode.ProviderResult<ECLNode[]> {
+        if (element) {
+            return element.getChildren();
+        }
+
+        return session.wuQuery({
+            Owner: this._myWorkunits ? session.userID : undefined,
+            Sortby: "Wuid",
+            Descending: false,
+            Count: 1
+        }).then(r => {
+            let year = 1970;
+            let month = 0;
+            let day = 1;
+            if (r.length) {
+                const wuid = r[0].Wuid;
+                year = parseInt(wuid.substring(1, 5));
+                month = parseInt(wuid.substring(5, 7)) - 1;
+                day = parseInt(wuid.substring(7, 9));
+            }
+            const oldestDay = new Date(year, month, day);
+            const oldestWeek = new Date(year, month, day - 7);
+            const oldestMonth = new Date(year, month, 1);
+            const oldestYear = new Date(year, 0, 1);
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const retVal: ECLNode[] = [];
+
+            //  Days
+            let currDate = now.getDate() - 1;
+            let curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+            while (curr.getDay() !== 5 && curr >= oldestDay) {
+                retVal.push(new ECLDateRangeNode(this, getDayName(curr), curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1)));
+                curr = new Date(now.getFullYear(), now.getMonth(), --currDate);
+            }
+
+            //  Weeks
+            let idx = 0;
+            currDate -= 6;
+            curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+            retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
+            while (curr.getMonth() === now.getMonth() && curr >= oldestWeek) {
+                currDate -= 7;
+                curr = new Date(now.getFullYear(), now.getMonth(), currDate);
+                retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
+            }
+
+            //  Months
+            idx = 0;
+            let currMonth = now.getMonth() - 1;
+            curr = new Date(now.getFullYear(), currMonth, 1);
+            while ((curr.getFullYear() === now.getFullYear() || idx < 1) && curr >= oldestMonth) {
+                ++idx;
+                retVal.push(new ECLDateRangeNode(this, getMonthName(curr), curr, new Date(curr.getFullYear(), curr.getMonth() + 1, 1)));
+                curr = new Date(now.getFullYear(), --currMonth, 1);
+            }
+
+            //  Years
+            let currYear = now.getFullYear() - 1;
+            curr = new Date(currYear, 0, 1);
+            while (curr >= oldestYear) {
+                retVal.push(new ECLDateRangeNode(this, `${currYear}`, curr, new Date(curr.getFullYear() + 1, 0, 1)));
+                curr = new Date(--currYear, 0, 1);
+            }
+
+            //  Today
+            return session.wuQuery({
+                Owner: this._myWorkunits ? session.userID : undefined,
+                StartDate: today.toISOString(),
+                Count: 999999
+            }).then(workunits => {
+                // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
+                return [...workunits.map(wu => new ECLWUNode(this, wu)), ...retVal];
+            }).catch(e => {
+                // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
+                return [new ECLErrorNode(this, e)];
+            });
+        });
+    }
+}
 
 //  https://microsoft.github.io/vscode-codicons/dist/codicon.html
 const Circle = {
@@ -117,7 +263,7 @@ export class ECLResultNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchConfig, `${this._result.Name} - ${this._result.Wuid}`, this._result.Wuid, this._result.Sequence],
+            arguments: [session.launchRequestArgs, `${this._result.Name} - ${this._result.Wuid}`, this._result.Wuid, this._result.Sequence],
             title: "Open ECL Workunit Details"
         };
     }
@@ -144,7 +290,7 @@ class ECLOutputsNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchConfig, this._wu.Wuid, this._wu.Wuid],
+            arguments: [session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
             title: "Open ECL Workunit Details"
         };
     }
@@ -215,7 +361,7 @@ export class ECLWUNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchConfig, this._wu.Wuid, this._wu.Wuid],
+            arguments: [session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
             title: "Open ECL Workunit Details"
         };
     }
@@ -267,164 +413,4 @@ function getDayName(date: Date) {
 
 function getMonthName(date: Date) {
     return date.toLocaleDateString(vscode.env.language, { month: "long" });
-}
-
-const PrevWeeks: string[] = ["Last Week", "Two Weeks Ago", "Three Weeks Ago", "Four Weeks Ago", "Five Weeks Ago", "Six Weeks Ago", "Seven Weeks Ago"];
-
-export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
-    _ctx: vscode.ExtensionContext;
-
-    _onDidChangeTreeData: vscode.EventEmitter<ECLNode | null> = new vscode.EventEmitter<ECLNode | null>();
-    readonly onDidChangeTreeData: vscode.Event<ECLNode | null> = this._onDidChangeTreeData.event;
-
-    private _treeView: vscode.TreeView<ECLNode>;
-    _myWorkunits = true;
-
-    private constructor(ctx: vscode.ExtensionContext) {
-        this._ctx = ctx;
-
-        this._treeView = vscode.window.createTreeView("hpccPlatform", {
-            treeDataProvider: this,
-            showCollapseAll: true
-        });
-
-        vscode.debug.onDidReceiveDebugSessionCustomEvent(event => {
-            switch (event.event) {
-                case "WUCreated":
-                    if (session.name !== event.session.name) {
-                        session.switchTo(event.session.name, event.session.configuration.targetCluster);
-                        this.refresh();
-                    } else {
-                        this.refresh();
-                    }
-                    break;
-            }
-        }, null, ctx.subscriptions);
-
-        session.switchTo();
-        this._treeView.title = session.name;
-
-        vscode.commands.registerCommand("hpccPlatform.switch", async () => {
-            if (await session.switch()) {
-                this._treeView.title = session.name;
-                this.refresh();
-            }
-        });
-        vscode.commands.registerCommand("hpccPlatform.myWorkunits", async () => {
-            this._myWorkunits = true;
-            this.refresh();
-        });
-        vscode.commands.registerCommand("hpccPlatform.allWorkunits", async () => {
-            this._myWorkunits = false;
-            this.refresh();
-        });
-        vscode.commands.registerCommand("hpccPlatform.refresh", () => {
-            this.refresh();
-        });
-    }
-
-    static attach(ctx: vscode.ExtensionContext): ECLWatchTree {
-        if (!hpccPlatform) {
-            hpccPlatform = new ECLWatchTree(ctx);
-        }
-        return hpccPlatform;
-    }
-
-    refresh(): void {
-        this._onDidChangeTreeData.fire(undefined);
-    }
-
-    getTreeItem(node: ECLNode): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        if (!node._treeItem) {
-            node._treeItem = new vscode.TreeItem(node.getLabel(), node.initialCollapseState());
-            node._treeItem.contextValue = node.constructor.name;
-        } else {
-            node._treeItem.label = node.getLabel();
-        }
-        node._treeItem.iconPath = node.iconPath();
-        node._treeItem.command = node.command();
-        return node._treeItem;
-    }
-
-    getChildren(element?: ECLNode): vscode.ProviderResult<ECLNode[]> {
-        if (element) {
-            return element.getChildren();
-        }
-
-        return session.wuQuery({
-            Owner: this._myWorkunits ? session.userID : undefined,
-            Sortby: "Wuid",
-            Descending: false,
-            Count: 1
-        }).then(r => {
-            let year = 1970;
-            let month = 0;
-            let day = 1;
-            if (r.length) {
-                const wuid = r[0].Wuid;
-                year = parseInt(wuid.substring(1, 5));
-                month = parseInt(wuid.substring(5, 7)) - 1;
-                day = parseInt(wuid.substring(7, 9));
-            }
-            const oldestDay = new Date(year, month, day);
-            const oldestWeek = new Date(year, month, day - 7);
-            const oldestMonth = new Date(year, month, 1);
-            const oldestYear = new Date(year, 0, 1);
-
-            const now = new Date();
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-            const retVal: ECLNode[] = [];
-
-            //  Days
-            let currDate = now.getDate() - 1;
-            let curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-            while (curr.getDay() !== 5 && curr >= oldestDay) {
-                retVal.push(new ECLDateRangeNode(this, getDayName(curr), curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1)));
-                curr = new Date(now.getFullYear(), now.getMonth(), --currDate);
-            }
-
-            //  Weeks
-            let idx = 0;
-            currDate -= 6;
-            curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-            retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
-            while (curr.getMonth() === now.getMonth() && curr >= oldestWeek) {
-                currDate -= 7;
-                curr = new Date(now.getFullYear(), now.getMonth(), currDate);
-                retVal.push(new ECLDateRangeNode(this, PrevWeeks[idx++], curr, new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7)));
-            }
-
-            //  Months
-            idx = 0;
-            let currMonth = now.getMonth() - 1;
-            curr = new Date(now.getFullYear(), currMonth, 1);
-            while ((curr.getFullYear() === now.getFullYear() || idx < 1) && curr >= oldestMonth) {
-                ++idx;
-                retVal.push(new ECLDateRangeNode(this, getMonthName(curr), curr, new Date(curr.getFullYear(), curr.getMonth() + 1, 1)));
-                curr = new Date(now.getFullYear(), --currMonth, 1);
-            }
-
-            //  Years
-            let currYear = now.getFullYear() - 1;
-            curr = new Date(currYear, 0, 1);
-            while (curr >= oldestYear) {
-                retVal.push(new ECLDateRangeNode(this, `${currYear}`, curr, new Date(curr.getFullYear() + 1, 0, 1)));
-                curr = new Date(--currYear, 0, 1);
-            }
-
-            //  Today
-            return session.wuQuery({
-                Owner: this._myWorkunits ? session.userID : undefined,
-                StartDate: today.toISOString(),
-                Count: 999999
-            }).then(workunits => {
-                // disabledLaunchConfig[this._name] = LaunchConfigState.Ok;
-                return [...workunits.map(wu => new ECLWUNode(this, wu)), ...retVal];
-            }).catch(e => {
-                // disabledLaunchConfig[this._name] = LaunchConfigState.Unreachable;
-                return [new ECLErrorNode(this, e)];
-            });
-        });
-    }
 }

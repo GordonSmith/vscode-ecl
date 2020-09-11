@@ -1,6 +1,5 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { Palette } from "@hpcc-js/common";
 import { WUDetails } from "./eclwatch/WUDetails";
 import { ThemeProvider } from "./eclwatch/themeGenerator";
 
@@ -38,7 +37,7 @@ window.addEventListener("message", function (event) {
     const message = event.data; // The JSON data our extension sent
     switch (message.command) {
         case "navigate":
-            render(message.data.launchConfig._config.protocol, message.data.launchConfig._config.serverAddress, message.data.launchConfig._config.port, message.data.wuid, message.data.result);
+            render(message.data.launchRequestArgs.protocol, message.data.launchRequestArgs.serverAddress, message.data.launchRequestArgs.port, message.data.launchRequestArgs.user, message.data.launchRequestArgs.password, message.data.wuid, message.data.result);
             break;
     }
 });
@@ -54,18 +53,24 @@ vscode.postMessage<LoadedMessage>({
 let prevProtocol;
 let prevServerAddress;
 let prevPort;
+let prevUser;
+let prevPassword;
 let prevWuid;
 let prevResult;
-function render(protocol, serverAddress, port, wuid, result) {
+function render(protocol, serverAddress, port, user, password, wuid, result?) {
     prevProtocol = protocol;
     prevServerAddress = serverAddress;
     prevPort = port;
+    prevUser = user;
+    prevPassword = password;
     prevWuid = wuid;
     prevResult = result;
     const clientRect = placeholder.getBoundingClientRect();
     ReactDOM.render(<WUDetails
         baseUrl={`${protocol}://${serverAddress}:${port}`}
         wuid={wuid}
+        user={user}
+        password={password}
         sequence={result}
         width={clientRect.width}
         height={clientRect.height}
@@ -75,11 +80,11 @@ function render(protocol, serverAddress, port, wuid, result) {
 
 //  Local debugging without VS Code
 if (document.location.protocol === "file:") {
-    render("https", "play.hpccsystems.com", "18010", "W20200904-185046", 2);
+    render("http", "10.173.14.207", "8010", "gosmith", "28Ee1$BHoJvNOTk$KL6F", "W20200910-090123");
 }
 
 window.addEventListener("resize", () => {
     if (prevProtocol) {
-        render(prevProtocol, prevServerAddress, prevPort, prevWuid, prevResult);
+        render(prevProtocol, prevServerAddress, prevPort, prevUser, prevPassword, prevWuid, prevResult);
     }
 });

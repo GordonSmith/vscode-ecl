@@ -19,6 +19,10 @@ export class WUResultTable extends Common {
     @publish(undefined, "string", "URL to WsWorkunits")
     baseUrl: { (): string, (_: string): WUResultTable };
     @publish(undefined, "string", "Workunit ID")
+    user: { (): string, (_: string): WUResultTable };
+    @publish(undefined, "string", "User ID")
+    password: { (): string, (_: string): WUResultTable };
+    @publish(undefined, "string", "Password")
     wuid: { (): string, (_: string): WUResultTable };
     @publish(undefined, "string", "Result Name")
     resultName: { (): string, (_: string): WUResultTable };
@@ -29,11 +33,11 @@ export class WUResultTable extends Common {
 
     calcResult(): Result | null {
         if (this.wuid() && this.resultName()) {
-            return new Result({ baseUrl: this.baseUrl() }, this.wuid(), this.resultName());
+            return new Result({ baseUrl: this.baseUrl(), userID: this.user(), password: this.password() }, this.wuid(), this.resultName());
         } else if (this.wuid() && this.sequence() !== undefined) {
-            return new Result({ baseUrl: this.baseUrl() }, this.wuid(), this.sequence());
+            return new Result({ baseUrl: this.baseUrl(), userID: this.user(), password: this.password() }, this.wuid(), this.sequence());
         } else if (this.logicalFile()) {
-            return new Result({ baseUrl: this.baseUrl() }, this.logicalFile());
+            return new Result({ baseUrl: this.baseUrl(), userID: this.user(), password: this.password() }, this.logicalFile());
         }
         return null;
     }
@@ -67,6 +71,8 @@ WUResultTable.prototype._class += " eclwatch_WUResultTable";
 
 interface WUResultProps {
     baseUrl: string;
+    user: string;
+    password: string;
     wuid: string;
     sequence: number;
     width: number;
@@ -75,6 +81,8 @@ interface WUResultProps {
 
 export const WUResult: React.FunctionComponent<WUResultProps> = ({
     baseUrl,
+    user,
+    password,
     wuid,
     sequence,
     width,
@@ -87,6 +95,8 @@ export const WUResult: React.FunctionComponent<WUResultProps> = ({
 
     table
         .baseUrl(baseUrl)
+        .user(user)
+        .password(password)
         .wuid(wuid)
         .sequence(sequence)
         ;

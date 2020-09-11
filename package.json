@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "ecl",
-  "version": "1.9.5",
+  "version": "2.0.0",
   "publisher": "hpcc-systems",
   "displayName": "ECL Language",
   "description": "ECL (Enterprise Control Language) support for Visual Studio Code",
@@ -94,6 +94,7 @@
     "vscode.json"
   ],
   "activationEvents": [
+    "*",
     "onLanguage:ecl",
     "onLanguage:kel",
     "onLanguage:omd",
@@ -373,6 +374,11 @@
         }
       ],
       "editor/context": [
+        {
+          "when": "resourceLangId == ecl && resourceExtname == .ecl",
+          "command": "ecl.submit",
+          "group": "navigation@997"
+        },
         {
           "when": "resourceLangId == ecl && resourceExtname == .ecl",
           "command": "ecl.checkSyntax",

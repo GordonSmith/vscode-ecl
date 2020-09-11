@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ECLCommands } from "./command";
-import { ECLConfigurationProvider } from "./configProvider";
+import { ECLConfigurationProvider } from "../hpccplatform/configProvider";
 import { ECLDiagnostic } from "./diagnostic";
 import { ECLDocumentSymbolProvider } from "./documentSymbolProvider";
 import { ECLEditor } from "./editor";
