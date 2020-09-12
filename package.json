@@ -186,6 +186,16 @@
         }
       },
       {
+        "command": "ecl.compile",
+        "category": "ECL",
+        "title": "Compile",
+        "description": "Compile ECL on the HPCC Platform.",
+        "icon": {
+          "light": "resources/light/file-binary.svg",
+          "dark": "resources/dark/file-binary.svg"
+        }
+      },
+      {
         "command": "ecl.checkSyntax",
         "category": "ECL",
         "title": "Syntax Check",
@@ -377,12 +387,17 @@
         {
           "when": "resourceLangId == ecl && resourceExtname == .ecl",
           "command": "ecl.submit",
-          "group": "navigation@997"
+          "group": "navigation@900"
+        },
+        {
+          "when": "resourceLangId == ecl && resourceExtname == .ecl",
+          "command": "ecl.compile",
+          "group": "navigation@910"
         },
         {
           "when": "resourceLangId == ecl && resourceExtname == .ecl",
           "command": "ecl.checkSyntax",
-          "group": "navigation@998"
+          "group": "navigation@920"
         },
         {
           "when": "resourceLangId == kel && resourceExtname == .kel",
@@ -434,7 +449,12 @@
         {
           "when": "resourceLangId == ecl",
           "command": "ecl.submit",
-          "group": "navigation"
+          "group": "navigation@900"
+        },
+        {
+          "when": "resourceLangId == ecl",
+          "command": "ecl.compile",
+          "group": "navigation@910"
         }
       ],
       "view/title": [
@@ -701,7 +721,6 @@
         "configurationAttributes": {
           "launch": {
             "required": [
-              "workspace",
               "serverAddress",
               "protocol",
               "port",
@@ -717,11 +736,6 @@
                   "debug"
                 ],
                 "default": "submit"
-              },
-              "workspace": {
-                "type": "string",
-                "description": "Workspace relative path to the program folder (or any file within that folder) when in 'debug' or 'test' mode, and to the pre-built binary file to debug in 'exec' mode.",
-                "default": "${workspaceRoot}"
               },
               "program": {
                 "default": "${file}"
@@ -812,7 +826,6 @@
             "type": "ecl",
             "request": "launch",
             "mode": "submit",
-            "workspace": "${workspaceRoot}",
             "program": "${file}",
             "protocol": "https",
             "serverAddress": "play.hpccsystems.com",
@@ -838,7 +851,6 @@
               "type": "ecl",
               "request": "launch",
               "mode": "submit",
-              "workspace": "^\"\\${workspaceRoot}\"",
               "program": "^\"\\${file}\"",
               "protocol": "http",
               "serverAddress": "localhost",
@@ -863,7 +875,6 @@
               "type": "ecl",
               "request": "launch",
               "mode": "submit",
-              "workspace": "^\"\\${workspaceRoot}\"",
               "program": "^\"\\${file}\"",
               "protocol": "https",
               "serverAddress": "play.hpccsystems.com",

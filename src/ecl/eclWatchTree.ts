@@ -27,6 +27,10 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             this.refresh();
         });
 
+        session.onDidCreateWorkunit(wu => {
+            this.refresh();
+        });
+
         vscode.commands.registerCommand("hpccPlatform.myWorkunits", async () => {
             this._myWorkunits = true;
             this.refresh();

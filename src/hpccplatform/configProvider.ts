@@ -33,33 +33,4 @@ export class ECLConfigurationProvider implements vscode.DebugConfigurationProvid
         }
         throw new Error("Invalid user ID / password");
     }
-
-    async localResolveDebugConfiguration(doc: vscode.TextDocument, debugConfiguration: LaunchRequestArguments): Promise<LaunchRequestArguments> {
-        const eclConfig = vscode.workspace.getConfiguration("ecl");
-        const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
-        const configPrefix = "${config:ecl.";
-        return this.resolveDebugConfiguration(folder, debugConfiguration as unknown as vscode.DebugConfiguration).then(debugConfiguration => {
-            for (const key in debugConfiguration) {
-                let value: any = debugConfiguration[key];
-                switch (value) {
-                    case "${workspaceRoot}":
-                        debugConfiguration[key] = folder.uri.fsPath;
-                        break;
-                    case "${file}":
-                        debugConfiguration[key] = doc.fileName;
-                        break;
-                    default:
-                        if (typeof value === "string" && value.indexOf(configPrefix) === 0) {
-                            const configKey = value.substring(configPrefix.length, value.length - 1);
-                            debugConfiguration[key] = eclConfig.get(configKey);
-                        }
-                }
-                value = debugConfiguration[key];
-                if (Array.isArray(value)) {
-                    debugConfiguration[key] = value.join(",");
-                }
-            }
-            return debugConfiguration as unknown as LaunchRequestArguments;
-        });
-    }
 }

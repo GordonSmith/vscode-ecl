@@ -1,8 +1,7 @@
-import type { WUQuery, TargetCluster, Workunit } from "@hpcc-js/comms";
+import { WUQuery, TargetCluster, Workunit, WUUpdate } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultsUrl } from "./launchConfig";
+import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultsUrl, action } from "./launchConfig";
 import { eclConfigurationProvider } from "./configProvider";
-import { submit } from "./workunit";
 import { eclCommands } from "../ecl/command";
 
 class Session {
@@ -12,6 +11,9 @@ class Session {
 
     private _onDidChangeSession: vscode.EventEmitter<LaunchRequestArguments> = new vscode.EventEmitter<LaunchRequestArguments>();
     readonly onDidChangeSession: vscode.Event<LaunchRequestArguments> = this._onDidChangeSession.event;
+
+    private _onDidCreateWorkunit: vscode.EventEmitter<Workunit> = new vscode.EventEmitter<Workunit>();
+    readonly onDidCreateWorkunit: vscode.Event<Workunit> = this._onDidCreateWorkunit.event;
 
     get name() {
         return this._launchRequestArgs?.name;
@@ -44,18 +46,16 @@ class Session {
         };
 
         vscode.debug.onDidReceiveDebugSessionCustomEvent(async event => {
+            const launchRequestArgs = event.session.configuration as unknown as LaunchRequestArguments;
             switch (event.event) {
                 case "LaunchRequest":
                     if (this.name !== event.session.name) {
-                        this.switchTo(event.session.name, event.session.configuration.targetCluster);
+                        this.switchTo(event.session.name, launchRequestArgs.targetCluster);
                     }
-                    submit(event.session.configuration as unknown as LaunchRequestArguments).then(wu => {
-                        vscode.commands.executeCommand("ecl.openECLWatch", this.launchRequestArgs, wu.Wuid, wu.Wuid);
-                    });
-                    break;
-                case "WUCreated":
-                    if (this.name !== event.session.name) {
-                        this.switchTo(event.session.name, event.session.configuration.targetCluster);
+                    if (this._launchConfig) {
+                        this._launchConfig.submit(launchRequestArgs.program, launchRequestArgs.targetCluster, launchRequestArgs.mode).then(wu => {
+                            vscode.commands.executeCommand("ecl.openECLWatch", this.launchRequestArgs, wu.Wuid, wu.Wuid);
+                        });
                     }
                     break;
             }
@@ -76,6 +76,10 @@ class Session {
         vscode.commands.registerCommand("ecl.submit", () => {
             this.submit(vscode.window.activeTextEditor.document);
         });
+
+        vscode.commands.registerCommand("ecl.compile", () => {
+            this.compile(vscode.window.activeTextEditor.document);
+        });
         this.switchTo();
     }
 
@@ -95,20 +99,21 @@ class Session {
     }
 
     submit(doc: vscode.TextDocument) {
-        const eclConfig = vscode.workspace.getConfiguration("ecl");
-        const wf = vscode.workspace.getWorkspaceFolder(doc.uri);
-
-        const debugSession: LaunchRequestArguments = {
-            ...this._launchRequestArgs,
-            targetCluster: this._targetCluster
-        };
-        eclConfigurationProvider.localResolveDebugConfiguration(doc, debugSession).then(debugSession => {
-            submit(debugSession).then(wu => {
-                if (wu) {
-                    eclCommands.openECLWatch(debugSession, wu.Wuid, wu.Wuid);
-                }
+        if (this._launchConfig) {
+            return this._launchConfig.submit(doc.uri.fsPath, this._targetCluster, "submit").then(wu => {
+                this._onDidCreateWorkunit.fire(wu);
+                return wu;
             });
-        });
+        }
+    }
+
+    compile(doc: vscode.TextDocument) {
+        if (this._launchConfig) {
+            return this._launchConfig.submit(doc.uri.fsPath, this._targetCluster, "compile").then(wu => {
+                this._onDidCreateWorkunit.fire(wu);
+                return wu;
+            });
+        }
     }
 
     configurations() {

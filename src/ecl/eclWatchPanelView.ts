@@ -1,6 +1,7 @@
-import { hashSum } from "@hpcc-js/util";
 import * as vscode from "vscode";
-import { LaunchConfig, LaunchRequestArguments } from "../hpccplatform/launchConfig";
+import { hashSum } from "@hpcc-js/util";
+import { LaunchRequestArguments } from "../hpccplatform/launchConfig";
+import { session } from "../hpccplatform/session";
 import type { Messages } from "../eclwatch";
 
 type NavigateParams = { launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number };
@@ -34,6 +35,14 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     private _prevParams: NavigateParams;
     public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken) {
         this._webviewView = webviewView;
+
+        session.onDidChangeSession(launchRequestArgs => {
+            this.navigateTo(launchRequestArgs, "", "");
+        });
+
+        session.onDidCreateWorkunit(wu => {
+            this.navigateTo(session.launchRequestArgs, wu.Wuid, wu.Wuid);
+        });
 
         this._webviewView.onDidChangeVisibility(e => {
             if (!this._webviewView.visible) {
@@ -71,11 +80,11 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
                 this._prevHash = hash;
                 this._webviewView.title = title;
                 this._webviewView.webview.postMessage({ command: "navigate", data: params });
-                vscode.commands.executeCommand("ecl.watch.lite.focus");
+                this._webviewView.show(true);
             }
         } else {
             this._prevParams = params;
-            vscode.commands.executeCommand("ecl.watch.lite.focus");
+            this._webviewView.show(true);
         }
     }
 
