@@ -30,7 +30,7 @@ export function wuDetailsUrl(launchRequestArgs: LaunchRequestArguments, wuid: st
     return `${espUrl(launchRequestArgs)}/?Widget=WUDetailsWidget&Wuid=${wuid}`;
 }
 
-export function wuResultsUrl(launchRequestArgs: LaunchRequestArguments, wuid: string, sequence: number) {
+export function wuResultUrl(launchRequestArgs: LaunchRequestArguments, wuid: string, sequence: number) {
     return `${espUrl(launchRequestArgs)}/?Widget=ResultWidget&Wuid=${wuid}&Sequence=${sequence}`;
 }
 
@@ -304,7 +304,6 @@ export class LaunchConfig {
     async localResolveDebugConfiguration(filePath: string): Promise<LaunchRequestArguments> {
         const uri = vscode.Uri.file(filePath);
         const folder = vscode.workspace.getWorkspaceFolder(uri);
-        const eclConfig = vscode.workspace.getConfiguration("ecl");
         const configPrefix = "${config:ecl.";
         return eclConfigurationProvider.resolveDebugConfiguration(folder, this._config as unknown as vscode.DebugConfiguration).then(debugConfiguration => {
             for (const key in debugConfiguration) {

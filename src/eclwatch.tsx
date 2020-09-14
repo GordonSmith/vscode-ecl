@@ -80,7 +80,8 @@ function render(protocol, serverAddress, port, user, password, wuid, result?) {
 
 //  Local debugging without VS Code
 if (document.location.protocol === "file:") {
-    render("http", "10.173.14.207", "8010", "gosmith", "28Ee1$BHoJvNOTk$KL6F", "W20200910-090123");
+    //render("http", "10.173.14.207", "8010", "gosmith", "28Ee1$BHoJvNOTk$KL6F", "W20200910-090123");
+    render("https", "play.hpccsystens.com", "18010", "gosmith", "", "");
 }
 
 window.addEventListener("resize", () => {

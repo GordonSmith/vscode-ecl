@@ -2,12 +2,13 @@ import { ClientTools, locateAllClientTools, locateClientTools as commsLocateClie
 import { QuickPickItem, window, workspace } from "vscode";
 import { eclStatusBar } from "./status";
 
+const eclConfig = workspace.getConfiguration("ecl");
+
 function showEclStatus(version: string, overriden: boolean, tooltip: string) {
     eclStatusBar.showClientTools(`${overriden ? "*" : ""}${version}`, tooltip);
 }
 
 export function locateClientTools(build?: string, cwd?: string, includeFolders?: string[], legacyMode?: boolean): Promise<ClientTools> {
-    const eclConfig = workspace.getConfiguration("ecl");
     const eclccPath = eclConfig.get("eclccPath") as string;
     return commsLocateClientTools(eclccPath, build, cwd, includeFolders, legacyMode).then(clientTools => {
         let eclccPathOverriden = false;
@@ -43,7 +44,6 @@ export function selectCTVersion() {
         input.onDidChangeSelection(items => {
             const item = items[0];
             if (item) {
-                const eclConfig = workspace.getConfiguration("ecl");
                 eclConfig.update("eclccPath", item.eclccPath);
                 showEclStatus(item.label, !!item.eclccPath, !!item.eclccPath ? item.eclccPath : "");
             }

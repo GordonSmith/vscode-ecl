@@ -1,10 +1,16 @@
 import * as vscode from "vscode";
 import { hashSum } from "@hpcc-js/util";
-import { LaunchRequestArguments } from "../hpccplatform/launchConfig";
+import { espUrl, LaunchRequestArguments, wuDetailsUrl, wuResultUrl } from "../hpccplatform/launchConfig";
 import { session } from "../hpccplatform/session";
 import type { Messages } from "../eclwatch";
 
-type NavigateParams = { launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number };
+type NavigateParams = {
+    launchRequestArgs: LaunchRequestArguments,
+    title: string,
+    wuid: string,
+    result?: number,
+    show: boolean
+};
 export let eclWatchPanelView: ECLWatchPanelView;
 export class ECLWatchPanelView implements vscode.WebviewViewProvider {
 
@@ -32,21 +38,26 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         return eclWatchPanelView;
     }
 
-    private _prevParams: NavigateParams;
+    private _currParams: NavigateParams;
+    private _resolveParams: NavigateParams;
     public resolveWebviewView(webviewView: vscode.WebviewView, context: vscode.WebviewViewResolveContext, _token: vscode.CancellationToken) {
         this._webviewView = webviewView;
 
         session.onDidChangeSession(launchRequestArgs => {
-            this.navigateTo(launchRequestArgs, "", "");
+            this.navigateTo(launchRequestArgs, "", "", 0, false);
         });
 
         session.onDidCreateWorkunit(wu => {
             this.navigateTo(session.launchRequestArgs, wu.Wuid, wu.Wuid);
         });
 
-        this._webviewView.onDidChangeVisibility(e => {
-            if (!this._webviewView.visible) {
-                this._webviewView.title = "";
+        vscode.commands.registerCommand("ecl.watch.lite.openECLWatchExternal", async () => {
+            if (this._currParams) {
+                if (this._currParams.result === undefined) {
+                    vscode.env.openExternal(vscode.Uri.parse(wuDetailsUrl(this._currParams.launchRequestArgs, this._currParams.wuid)));
+                } else {
+                    vscode.env.openExternal(vscode.Uri.parse(wuResultUrl(this._currParams.launchRequestArgs, this._currParams.wuid, this._currParams.result)));
+                }
             }
         });
 
@@ -61,8 +72,8 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         this._webviewView.webview.onDidReceiveMessage((message: Messages) => {
             switch (message.command) {
                 case "loaded":
-                    if (this._prevParams) {
-                        this.navigateTo(this._prevParams.launchRequestArgs, this._prevParams.title, this._prevParams.wuid, this._prevParams.result);
+                    if (this._resolveParams) {
+                        this.navigateTo(this._resolveParams.launchRequestArgs, this._resolveParams.title, this._resolveParams.wuid, this._resolveParams.result, this._resolveParams.show);
                     }
                     break;
             }
@@ -72,19 +83,23 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     }
 
     private _prevHash: string;
-    navigateTo(launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number) {
-        const params: NavigateParams = { launchRequestArgs, title, wuid, result };
+    navigateTo(launchRequestArgs: LaunchRequestArguments, title: string, wuid: string, result?: number, show = true) {
+        this._currParams = { launchRequestArgs, title, wuid, result, show };
         if (this._webviewView) {
-            const hash = hashSum(params);
+            const hash = hashSum(this._currParams);
             if (this._prevHash !== hash) {
                 this._prevHash = hash;
                 this._webviewView.title = title;
-                this._webviewView.webview.postMessage({ command: "navigate", data: params });
-                this._webviewView.show(true);
+                this._webviewView.webview.postMessage({ command: "navigate", data: this._currParams });
+                if (show) {
+                    this._webviewView.show(true);
+                }
             }
         } else {
-            this._prevParams = params;
-            this._webviewView.show(true);
+            this._resolveParams = this._currParams;
+            if (show) {
+                this._webviewView.show(true);
+            }
         }
     }
 

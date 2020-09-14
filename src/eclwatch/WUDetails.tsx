@@ -1,8 +1,6 @@
 import * as React from "react";
 import { Workunit, WUInfo, Result } from "@hpcc-js/comms";
-import { ILabelStyles } from "@fluentui/react/lib/Label";
-import { Pivot, PivotItem, IPivotStyles, IPivotItemProps } from "@fluentui/react/lib/Pivot";
-import { IStyleSet } from "@fluentui/react/lib/Styling";
+import { Pivot, PivotItem, IPivotStyles, Spinner, ILabelStyles, IStyleSet } from "@fluentui/react";
 import { WUIssues, WUResult } from "./WUResult";
 
 const bodyStyles = window.getComputedStyle(document.body);
@@ -57,23 +55,38 @@ export const WUDetails: React.FunctionComponent<WUDetailsProps> = ({
         setSelectedKey(item.props.itemKey!);
     };
 
+    const [busy, setBusy] = React.useState("Loading...");
     const [exceptions, setExceptions] = React.useState<WUInfo.ECLException[]>([]);
     const [results, setResults] = React.useState<Result[]>([]);
 
     React.useEffect(() => {
-        const wu = Workunit.attach({ baseUrl, userID: user, password }, wuid);
-        if (wu.isComplete()) {
-            wu.fetchECLExceptions().then(exceptions => setExceptions([...exceptions]));
-            wu.fetchResults().then(results => setResults([...results]));
-        } else {
-            let prevStateID;
-            wu.watchUntilComplete(() => {
-                if (prevStateID !== wu.StateID) {
-                    prevStateID = wu.StateID;
+        if (wuid) {
+            const wu = Workunit.attach({ baseUrl, userID: user, password }, wuid);
+            wu.refresh().then(() => {
+                if (wu.isComplete()) {
+                    setBusy(wu.State);
                     wu.fetchECLExceptions().then(exceptions => setExceptions([...exceptions]));
                     wu.fetchResults().then(results => setResults([...results]));
+                } else {
+                    let prevStateID;
+                    wu.watchUntilComplete(() => {
+                        if (prevStateID !== wu.StateID) {
+                            prevStateID = wu.StateID;
+                            setBusy(wu.State);
+                            wu.fetchECLExceptions().then(exceptions => setExceptions([...exceptions]));
+                            wu.fetchResults().then(results => setResults([...results]));
+                        }
+                    });
                 }
+            }).catch(e => {
+                setBusy(e.message);
+                setExceptions([]);
+                setResults([]);
             });
+        } else {
+            setBusy("");
+            setExceptions([]);
+            setResults([]);
         }
     }, [baseUrl, wuid]);
 
@@ -97,25 +110,26 @@ export const WUDetails: React.FunctionComponent<WUDetailsProps> = ({
         }
     }
 
-    return <>
-        <div ref={pivotRef}>
+    return busy && !exceptions.length && !results.length ? <Spinner label={busy} /> :
+        <>
+            <div ref={pivotRef}>
+                {
+                    exceptions.length > 0 || results.length > 0 ?
+                        <Pivot styles={pivotStyles} selectedKey={selectedKey} onLinkClick={handleLinkClick} headersOnly={true}>
+                            {[
+                                ...(exceptions.length ? [<PivotItem key={"issues"} itemKey={"issues"} headerText={"Issues"} />] : []),
+                                ...results.map(r => <PivotItem key={`${r.Wuid}:: ${r.Sequence}`} itemKey={"" + r.Sequence} headerText={r.Name} />)
+                            ]}
+                        </Pivot>
+                        : undefined
+                }
+            </div>
             {
-                exceptions.length > 0 || results.length > 0 ?
-                    <Pivot styles={pivotStyles} selectedKey={selectedKey} onLinkClick={handleLinkClick} headersOnly={true}>
-                        {[
-                            ...(exceptions.length ? [<PivotItem key={"issues"} itemKey={"issues"} headerText={"Issues"} />] : []),
-                            ...results.map(r => <PivotItem key={`${r.Wuid}:: ${r.Sequence}`} itemKey={"" + r.Sequence} headerText={r.Name} />)
-                        ]}
-                    </Pivot>
-                    : undefined
+                selectedKey === "issues" || (selectedKey === undefined && hasIssues) ?
+                    <WUIssues exceptions={exceptions} width={width} height={bodyHeight} />
+                    : results.length > 0 && bodyHeight > 0 ?
+                        <WUResult baseUrl={baseUrl} user={user} password={password} wuid={wuid} sequence={results.length > parseInt(selectedKey) ? parseInt(selectedKey) : 0} width={width} height={bodyHeight} />
+                        : undefined
             }
-        </div>
-        {
-            selectedKey === "issues" || (selectedKey === undefined && hasIssues) ?
-                <WUIssues exceptions={exceptions} width={width} height={bodyHeight} />
-                : results.length > 0 && bodyHeight > 0 ?
-                    <WUResult baseUrl={baseUrl} user={user} password={password} wuid={wuid} sequence={results.length > parseInt(selectedKey) ? parseInt(selectedKey) : 0} width={width} height={bodyHeight} />
-                    : undefined
-        }
-    </>;
+        </>;
 };

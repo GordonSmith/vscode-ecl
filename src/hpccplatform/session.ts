@@ -1,6 +1,6 @@
 import { WUQuery, TargetCluster, Workunit, WUUpdate } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultsUrl, action } from "./launchConfig";
+import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl, action } from "./launchConfig";
 import { eclConfigurationProvider } from "./configProvider";
 import { eclCommands } from "../ecl/command";
 
@@ -87,8 +87,8 @@ class Session {
         return wuDetailsUrl(this._launchRequestArgs, wuid);
     }
 
-    wuResultsUrl(wuid: string, sequence: number) {
-        return wuResultsUrl(this._launchRequestArgs, wuid, sequence);
+    wuResultUrl(wuid: string, sequence: number) {
+        return wuResultUrl(this._launchRequestArgs, wuid, sequence);
     }
 
     wuQuery(request: WUQuery.Request): Promise<Workunit[]> {
@@ -145,12 +145,10 @@ class Session {
             this._launchRequestArgs = configs.filter(c => c.name === name)[0] || configs[0];
             this._launchConfig = this._launchRequestArgs ? new LaunchConfig(this._launchRequestArgs) : undefined;
             this.refreshStatusBar();
+            this._onDidChangeSession.fire(this._launchRequestArgs);
         }
         this._targetCluster = targetCluster || this._launchRequestArgs?.targetCluster || undefined;
         this.refreshTCStatusBar();
-        if (this._launchRequestArgs) {
-            this._onDidChangeSession.fire(this._launchRequestArgs);
-        }
     }
 
     switch(): void {

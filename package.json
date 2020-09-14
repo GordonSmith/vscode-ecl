@@ -272,6 +272,15 @@
         }
       },
       {
+        "command": "ecl.watch.lite.openECLWatchExternal",
+        "title": "ECL Watch",
+        "description": "Open ECL Watch in external browser.",
+        "icon": {
+          "light": "resources/light/globe.svg",
+          "dark": "resources/dark/globe.svg"
+        }
+      },
+      {
         "command": "hpccPlatform.switch",
         "title": "Switch HPCC Platform",
         "description": "Switch to different HPCC Platform instance.",
@@ -487,6 +496,11 @@
           "command": "hpccPlatform.switch",
           "when": "view == hpccPlatform",
           "group": "navigation@60"
+        },
+        {
+          "command": "ecl.watch.lite.openECLWatchExternal",
+          "when": "view == ecl.watch.lite",
+          "group": "navigation@100"
         }
       ],
       "view/item/context": [
