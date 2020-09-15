@@ -1,6 +1,6 @@
 import { Workunit, WUStateID, Result } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { session } from "../hpccplatform/session";
+import { sessionManager } from "../hpccplatform/session";
 
 export let eclWatchTree: ECLWatchTree;
 
@@ -24,11 +24,11 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             showCollapseAll: true
         });
 
-        session.onDidChangeSession(launchConfigArgs => {
+        sessionManager.onDidChangeSession(launchConfigArgs => {
             this.refresh();
         });
 
-        session.onDidCreateWorkunit(wu => {
+        sessionManager.onDidCreateWorkunit(wu => {
             this.refresh();
         });
 
@@ -83,9 +83,9 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             return element.getChildren();
         }
 
-        this._treeView.title = session.name;
-        return session.wuQuery({
-            Owner: this._myWorkunits ? session.userID : undefined,
+        this._treeView.title = sessionManager.session.name;
+        return sessionManager.wuQuery({
+            Owner: this._myWorkunits ? sessionManager.session.userID : undefined,
             Sortby: "Wuid",
             Descending: false,
             Count: 1
@@ -150,8 +150,8 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
             }
 
             //  Today
-            return session.wuQuery({
-                Owner: this._myWorkunits ? session.userID : undefined,
+            return sessionManager.wuQuery({
+                Owner: this._myWorkunits ? sessionManager.session.userID : undefined,
                 StartDate: today.toISOString(),
                 Count: 999999
             }).then(workunits => {
@@ -254,7 +254,7 @@ export class ECLWebNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openWebSite",
-            arguments: [session.wuDetailsUrl(this._wu.Wuid), this._wu.Wuid, true],
+            arguments: [sessionManager.wuDetailsUrl(this._wu.Wuid), this._wu.Wuid, true],
             title: "Open Web Site"
         };
     }
@@ -277,7 +277,7 @@ export class ECLResultNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchRequestArgs, `${this._result.Name} - ${this._result.Wuid}`, this._result.Wuid, this._result.Sequence],
+            arguments: [sessionManager.session.launchRequestArgs, `${this._result.Name} - ${this._result.Wuid}`, this._result.Wuid, this._result.Sequence],
             title: "Open ECL Workunit Details"
         };
     }
@@ -304,7 +304,7 @@ class ECLOutputsNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
+            arguments: [sessionManager.session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
             title: "Open ECL Workunit Details"
         };
     }
@@ -375,7 +375,7 @@ export class ECLWUNode extends ECLNode {
     command(): vscode.Command | undefined {
         return {
             command: "ecl.openECLWatch",
-            arguments: [session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
+            arguments: [sessionManager.session.launchRequestArgs, this._wu.Wuid, this._wu.Wuid],
             title: "Open ECL Workunit Details"
         };
     }
@@ -406,8 +406,8 @@ export class ECLDateRangeNode extends ECLNode {
     }
 
     getChildren(): vscode.ProviderResult<ECLWUNode[]> {
-        return session.wuQuery({
-            Owner: this._tree._myWorkunits ? session.userID : undefined,
+        return sessionManager.wuQuery({
+            Owner: this._tree._myWorkunits ? sessionManager.session.userID : undefined,
             StartDate: this._from.toISOString(),
             EndDate: this._to.toISOString(),
             Count: 999999

@@ -3,18 +3,18 @@ import { WUQuery, Workunit } from "@hpcc-js/comms";
 import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl } from "./launchConfig";
 
 class Session {
-    private _launchRequestArgs?: LaunchRequestArguments;
-    private _launchConfig?: LaunchConfig;
-    private _targetCluster: string;
+    private _launchRequestArgs: LaunchRequestArguments;
+    private _launchConfig: LaunchConfig;
+    private _targetCluster?: string;
 
-    private _onDidChangeSession: vscode.EventEmitter<LaunchRequestArguments> = new vscode.EventEmitter<LaunchRequestArguments>();
-    readonly onDidChangeSession: vscode.Event<LaunchRequestArguments> = this._onDidChangeSession.event;
-
-    private _onDidCreateWorkunit: vscode.EventEmitter<Workunit> = new vscode.EventEmitter<Workunit>();
-    readonly onDidCreateWorkunit: vscode.Event<Workunit> = this._onDidCreateWorkunit.event;
+    constructor(launchRequestArgs: LaunchRequestArguments, targetCluster?: string) {
+        this._launchRequestArgs = launchRequestArgs;
+        this._launchConfig = new LaunchConfig(launchRequestArgs);
+        this._targetCluster = targetCluster;
+    }
 
     get name() {
-        return this._launchRequestArgs?.name;
+        return this._launchRequestArgs.name;
     }
 
     get launchRequestArgs() {
@@ -22,8 +22,67 @@ class Session {
     }
 
     get userID() {
-        return this._launchRequestArgs?.user;
+        return this._launchRequestArgs.user;
     }
+
+    get targetCluster() {
+        return this._targetCluster || this._launchRequestArgs.targetCluster;
+    }
+
+    get overriddenTargetCluster() {
+        return this._targetCluster;
+    }
+
+    targetClusters() {
+        return this._launchConfig.targetClusters();
+    }
+
+    baseUrl() {
+        return espUrl(this._launchRequestArgs);
+    }
+
+    wuDetailsUrl(wuid: string) {
+        return wuDetailsUrl(this._launchRequestArgs, wuid);
+    }
+
+    wuResultUrl(wuid: string, sequence: number) {
+        return wuResultUrl(this._launchRequestArgs, wuid, sequence);
+    }
+
+    wuQuery(request: WUQuery.Request): Promise<Workunit[]> {
+        if (this._launchConfig) {
+            return this._launchConfig.wuQuery(request);
+        }
+        return Promise.resolve([]);
+    }
+
+    submit(fsPath: string) {
+        if (this._launchConfig) {
+            return this._launchConfig.submit(fsPath, this.targetCluster, "submit").then(wu => {
+                return wu;
+            });
+        }
+    }
+
+    compile(fsPath: string) {
+        if (this._launchConfig) {
+            return this._launchConfig.submit(fsPath, this.targetCluster, "compile").then(wu => {
+                return wu;
+            });
+        }
+    }
+}
+
+class SessionManager {
+
+    private _globalSession?: Session;
+    private _pinnedSession?: Session;
+
+    private _onDidChangeSession: vscode.EventEmitter<LaunchRequestArguments> = new vscode.EventEmitter<LaunchRequestArguments>();
+    readonly onDidChangeSession: vscode.Event<LaunchRequestArguments> = this._onDidChangeSession.event;
+
+    private _onDidCreateWorkunit: vscode.EventEmitter<Workunit> = new vscode.EventEmitter<Workunit>();
+    readonly onDidCreateWorkunit: vscode.Event<Workunit> = this._onDidCreateWorkunit.event;
 
     private _statusBarPin: vscode.StatusBarItem;
     private _statusBarLaunch: vscode.StatusBarItem;
@@ -51,22 +110,6 @@ class Session {
             title: "Switch Target Cluster."
         };
 
-        vscode.debug.onDidReceiveDebugSessionCustomEvent(async event => {
-            const launchRequestArgs = event.session.configuration as unknown as LaunchRequestArguments;
-            switch (event.event) {
-                case "LaunchRequest":
-                    if (this.name !== event.session.name) {
-                        this.switchTo(event.session.name, launchRequestArgs.targetCluster);
-                    }
-                    if (this._launchConfig) {
-                        this._launchConfig.submit(launchRequestArgs.program, launchRequestArgs.targetCluster, launchRequestArgs.mode).then(wu => {
-                            vscode.commands.executeCommand("ecl.openECLWatch", this.launchRequestArgs, wu.Wuid, wu.Wuid);
-                        });
-                    }
-                    break;
-            }
-        });
-
         vscode.commands.registerCommand("hpccPlatform.pin", async () => {
             const eclConfig = vscode.workspace.getConfiguration("ecl");
             const activeUri: string = vscode.window.activeTextEditor?.document?.uri.toString(true) || "";
@@ -74,11 +117,14 @@ class Session {
                 const pinnedLaunchConfigurations = eclConfig.get<object>("pinnedLaunchConfigurations");
                 if (pinnedLaunchConfigurations[activeUri]) {
                     pinnedLaunchConfigurations[activeUri] = undefined;
+                    this._pinnedSession = undefined;
                 } else {
-                    pinnedLaunchConfigurations[activeUri] = { launchConfiguration: this.name, targetCluster: this._targetCluster };
+                    this._pinnedSession = new Session(this.session.launchRequestArgs, this.session.overriddenTargetCluster);
+                    pinnedLaunchConfigurations[activeUri] = { launchConfiguration: this.session.name, targetCluster: this.session.overriddenTargetCluster };
                 }
                 await eclConfig.update("pinnedLaunchConfigurations", pinnedLaunchConfigurations);
-                this.refreshPinStatusBar();
+                this.updateSettings();
+                this.refreshStatusBar();
             }
         });
 
@@ -91,7 +137,7 @@ class Session {
         });
 
         vscode.commands.registerCommand("hpccPlatform.eclwatch", async () => {
-            vscode.env.openExternal(vscode.Uri.parse(`${espUrl(this._launchRequestArgs)}/esp/files/stub.htm`));
+            vscode.env.openExternal(vscode.Uri.parse(`${this.session.baseUrl}/esp/files/stub.htm`));
         });
 
         vscode.commands.registerCommand("ecl.submit", () => {
@@ -103,7 +149,36 @@ class Session {
         });
 
         vscode.window.onDidChangeActiveTextEditor(() => {
-            this.refreshPinStatusBar();
+            const activeUri: string = this.activeUri;
+            this._pinnedSession = undefined;
+            if (activeUri) {
+                const eclConfig = vscode.workspace.getConfiguration("ecl");
+                const pinnedLaunchConfiguration = eclConfig.get<object>("pinnedLaunchConfigurations")[activeUri];
+                const launchConfigName = pinnedLaunchConfiguration?.launchConfiguration;
+                if (launchConfigName) {
+                    const pinnedConfig = this.configurations()[launchConfigName];
+                    if (pinnedConfig) {
+                        this._pinnedSession = new Session(pinnedConfig, pinnedLaunchConfiguration?.targetCluster);
+                    }
+                }
+            }
+            this.refreshStatusBar();
+        });
+
+        vscode.debug.onDidReceiveDebugSessionCustomEvent(async event => {
+            const launchRequestArgs = event.session.configuration as unknown as LaunchRequestArguments;
+            switch (event.event) {
+                case "LaunchRequest":
+                    if (this.session.name !== event.session.name) {
+                        this.switchTo(event.session.name, launchRequestArgs.targetCluster);
+                    }
+                    if (this.session) {
+                        this.session.submit(launchRequestArgs.program).then(wu => {
+                            vscode.commands.executeCommand("ecl.openECLWatch", this.session.launchRequestArgs, wu.Wuid, wu.Wuid);
+                        });
+                    }
+                    break;
+            }
         });
 
         const eclConfig = vscode.workspace.getConfiguration("ecl");
@@ -112,24 +187,49 @@ class Session {
         this.switchTo(launchConfig, targetCluster);
     }
 
+    private get activeUri() {
+        return vscode.window.activeTextEditor?.document?.uri.toString(true) || "";
+    }
+
+    private get pinnedSession() {
+        const activeUri = this.activeUri;
+        if (activeUri) {
+            const eclConfig = vscode.workspace.getConfiguration("ecl");
+            const pinnedLaunchConfigurations = eclConfig.get<object>("pinnedLaunchConfigurations");
+            return pinnedLaunchConfigurations[activeUri];
+        }
+    }
+
+    get session(): Session | undefined {
+        return this._pinnedSession || this._globalSession;
+    }
+
+    set session(session: Session) {
+        if (this._pinnedSession) {
+            this._pinnedSession = session;
+        } else {
+            this._globalSession = session;
+        }
+    }
+
     wuDetailsUrl(wuid: string) {
-        return wuDetailsUrl(this._launchRequestArgs, wuid);
+        return this.session.wuDetailsUrl(wuid);
     }
 
     wuResultUrl(wuid: string, sequence: number) {
-        return wuResultUrl(this._launchRequestArgs, wuid, sequence);
+        return this.session?.wuResultUrl(wuid, sequence);
     }
 
     wuQuery(request: WUQuery.Request): Promise<Workunit[]> {
-        if (this._launchConfig) {
-            return this._launchConfig.wuQuery(request);
+        if (this.session) {
+            return this.session.wuQuery(request);
         }
         return Promise.resolve([]);
     }
 
     submit(doc: vscode.TextDocument) {
-        if (this._launchConfig) {
-            return this._launchConfig.submit(doc.uri.fsPath, this._targetCluster, "submit").then(wu => {
+        if (this.session) {
+            return this.session.submit(doc.uri.fsPath).then(wu => {
                 this._onDidCreateWorkunit.fire(wu);
                 return wu;
             });
@@ -137,8 +237,8 @@ class Session {
     }
 
     compile(doc: vscode.TextDocument) {
-        if (this._launchConfig) {
-            return this._launchConfig.submit(doc.uri.fsPath, this._targetCluster, "compile").then(wu => {
+        if (this.session) {
+            return this.session.compile(doc.uri.fsPath).then(wu => {
                 this._onDidCreateWorkunit.fire(wu);
                 return wu;
             });
@@ -146,14 +246,14 @@ class Session {
     }
 
     configurations() {
-        const retVal: LaunchRequestArguments[] = [];
+        const retVal: { [name: string]: LaunchRequestArguments } = {};
 
         function gatherServers(uri?: vscode.Uri) {
             const eclLaunch = vscode.workspace.getConfiguration("launch", uri);
             if (eclLaunch.has("configurations")) {
                 for (const launchConfig of eclLaunch.get<any[]>("configurations")!) {
                     if (launchConfig.type === "ecl" && launchConfig.name) {
-                        retVal.push(launchConfig);
+                        retVal[launchConfig.name] = launchConfig;
                     }
                 }
             }
@@ -169,30 +269,45 @@ class Session {
     }
 
     switchTo(name?: string, targetCluster?: string) {
-        if (!this._launchRequestArgs || this._launchRequestArgs.name !== name) {
-            const configs: LaunchRequestArguments[] = this.configurations();
-            this._launchRequestArgs = configs.filter(c => c.name === name)[0] || configs[0];
-            this._launchConfig = this._launchRequestArgs ? new LaunchConfig(this._launchRequestArgs) : undefined;
-            this._onDidChangeSession.fire(this._launchRequestArgs);
+        if (!this.session || this.session.name !== name) {
+            const configs = this.configurations();
+            const launchRequestArgs = configs[name] || configs[Object.keys(configs)[0]];
+            if (launchRequestArgs) {
+                this.session = new Session(launchRequestArgs, targetCluster);
+                this._onDidChangeSession.fire(this.session.launchRequestArgs);
+            }
         }
-        this._targetCluster = targetCluster || this._launchRequestArgs?.targetCluster || undefined;
-
-        const eclConfig = vscode.workspace.getConfiguration("ecl");
-        eclConfig.update("launchConfiguration", name);
-        const targetClusters = eclConfig.get("targetCluster");
-        targetClusters[name] = targetCluster;
-        eclConfig.update("targetCluster", targetClusters);
-
+        if (this.session.overriddenTargetCluster !== targetCluster) {
+            this.session = new Session(this.session.launchRequestArgs, targetCluster);
+        }
+        this.updateSettings();
         this.refreshStatusBar();
     }
 
+    updateSettings() {
+        const eclConfig = vscode.workspace.getConfiguration("ecl");
+        if (this._pinnedSession) {
+            const activeUri = this.activeUri;
+            if (activeUri) {
+                const pinnedLaunchConfigurations = eclConfig.get<object>("pinnedLaunchConfigurations");
+                pinnedLaunchConfigurations[activeUri] = { launchConfiguration: this.session.name, targetCluster: this.session.overriddenTargetCluster };
+                eclConfig.update("pinnedLaunchConfigurations", pinnedLaunchConfigurations);
+            }
+        } else {
+            eclConfig.update("launchConfiguration", this.session.name);
+            const targetClusters = eclConfig.get<object>("targetCluster");
+            targetClusters[this.session.name] = this.session.overriddenTargetCluster;
+            eclConfig.update("targetCluster", targetClusters);
+        }
+    }
+
     switch(): void {
-        const configs: LaunchRequestArguments[] = this.configurations();
+        const configs = this.configurations();
 
         const input = vscode.window.createQuickPick();
-        input.items = configs.map(config => {
+        input.items = Object.keys(configs).map(name => {
             return {
-                label: config.name
+                label: name
             };
         });
 
@@ -207,8 +322,8 @@ class Session {
     }
 
     switchTargetCluster(): void {
-        if (this._launchConfig) {
-            this._launchConfig.targetClusters().then(targetClusters => {
+        if (this.session) {
+            this.session.targetClusters().then(targetClusters => {
                 const input = vscode.window.createQuickPick();
                 input.items = [{ label: "Auto Detect" }, ...targetClusters.map(tc => {
                     return {
@@ -219,7 +334,7 @@ class Session {
                 input.onDidChangeSelection(async items => {
                     const item = items[0];
                     if (item) {
-                        this.switchTo(this.name, item.label === "Auto Detect" ? undefined : item.label);
+                        this.switchTo(this.session.name, item.label === "Auto Detect" ? undefined : item.label);
                     }
                     input.hide();
                 });
@@ -239,19 +354,19 @@ class Session {
         }
         this._statusBarPin.text = isPinned ? "$(pinned)" : "$(pin)";
         this._statusBarPin.tooltip = (isPinned ? "Unpin" : "Pin") + " launch configutation to current document.";
-        this._launchRequestArgs ? this._statusBarPin.show() : this._statusBarPin.hide();
+        this.session ? this._statusBarPin.show() : this._statusBarPin.hide();
     }
 
     refreshLaunchStatusBar() {
-        this._statusBarLaunch.text = this._launchRequestArgs?.name;
+        this._statusBarLaunch.text = this.session?.name;
         this._statusBarLaunch.tooltip = "HPCC Platform Launch Configuration";
-        this._launchRequestArgs ? this._statusBarLaunch.show() : this._statusBarLaunch.hide();
+        this.session ? this._statusBarLaunch.show() : this._statusBarLaunch.hide();
     }
 
     refreshTCStatusBar() {
-        this._statusBarTargetCluster.text = this._targetCluster;
+        this._statusBarTargetCluster.text = this.session.targetCluster;
         this._statusBarTargetCluster.tooltip = "HPCC Platform TargetCluster";
-        this._targetCluster ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
+        this.session ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
     }
 
     refreshStatusBar() {
@@ -260,4 +375,4 @@ class Session {
         this.refreshTCStatusBar();
     }
 }
-export const session: Session = new Session();
+export const sessionManager: SessionManager = new SessionManager();

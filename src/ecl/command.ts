@@ -3,7 +3,7 @@ import { LaunchRequestArguments } from "../hpccplatform/launchConfig";
 import { checkTextDocument, checkWorkspace } from "./check";
 import { selectCTVersion } from "./clientTools";
 import { eclDiagnostic } from "./diagnostic";
-import { session } from "../hpccplatform/session";
+import { sessionManager } from "../hpccplatform/session";
 import { eclWatchPanelView } from "./eclWatchPanelView";
 import { ECLResultNode, ECLWUNode } from "./eclWatchTree";
 
@@ -53,7 +53,7 @@ export class ECLCommands {
     submit() {
         if (vscode.window.activeTextEditor) {
             vscode.window.activeTextEditor.document.save();
-            session.submit(vscode.window.activeTextEditor.document);
+            sessionManager.submit(vscode.window.activeTextEditor.document);
         }
     }
 

@@ -74,7 +74,7 @@ function checkUri(uri: vscode.Uri, eclConfig: vscode.WorkspaceConfiguration): Pr
     if (uri) {
         const wsf = vscode.workspace.getWorkspaceFolder(uri);
         if (wsf) {
-            vscode.window.setStatusBarMessage(`Syntax Check:  ${path.relative(wsf.uri.fsPath, uri.fsPath)}`);
+            //             vscode.window.setStatusBarMessage(`Syntax Check:  ${path.relative(wsf.uri.fsPath, uri.fsPath)}`);
         }
     }
     eclDiagnostic.set(uri, checking);
