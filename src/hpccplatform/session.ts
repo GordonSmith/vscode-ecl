@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { WUQuery, Workunit } from "@hpcc-js/comms";
 import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl } from "./launchConfig";
+import { ECL_MODE } from "../mode";
 
 class Session {
     private _launchRequestArgs: LaunchRequestArguments;
@@ -50,26 +51,15 @@ class Session {
     }
 
     wuQuery(request: WUQuery.Request): Promise<Workunit[]> {
-        if (this._launchConfig) {
-            return this._launchConfig.wuQuery(request);
-        }
-        return Promise.resolve([]);
+        return this._launchConfig.wuQuery(request);
     }
 
     submit(fsPath: string) {
-        if (this._launchConfig) {
-            return this._launchConfig.submit(fsPath, this.targetCluster, "submit").then(wu => {
-                return wu;
-            });
-        }
+        return this._launchConfig.submit(fsPath, this.targetCluster, "submit");
     }
 
     compile(fsPath: string) {
-        if (this._launchConfig) {
-            return this._launchConfig.submit(fsPath, this.targetCluster, "compile").then(wu => {
-                return wu;
-            });
-        }
+        return this._launchConfig.submit(fsPath, this.targetCluster, "compile");
     }
 }
 
@@ -77,6 +67,8 @@ class SessionManager {
 
     private _globalSession?: Session;
     private _pinnedSession?: Session;
+
+    private _isActiveECL: boolean = false;
 
     private _onDidChangeSession: vscode.EventEmitter<LaunchRequestArguments> = new vscode.EventEmitter<LaunchRequestArguments>();
     readonly onDidChangeSession: vscode.Event<LaunchRequestArguments> = this._onDidChangeSession.event;
@@ -89,26 +81,14 @@ class SessionManager {
     private _statusBarTargetCluster: vscode.StatusBarItem;
 
     constructor() {
-        this._statusBarPin = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 2);
-        this._statusBarPin.command = {
-            command: "hpccPlatform.pin",
-            arguments: [],
-            title: "Pin launch configutation"
-        };
+        this._statusBarLaunch = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 2);
+        this._statusBarLaunch.command = "hpccPlatform.switch";
 
-        this._statusBarLaunch = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 1);
-        this._statusBarLaunch.command = {
-            command: "hpccPlatform.switch",
-            arguments: [],
-            title: "Switch HPCC Platform."
-        };
+        this._statusBarTargetCluster = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 1);
+        this._statusBarTargetCluster.command = "hpccPlatform.switchTargetCluster";
 
-        this._statusBarTargetCluster = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE);
-        this._statusBarTargetCluster.command = {
-            command: "hpccPlatform.switchTargetCluster",
-            arguments: [],
-            title: "Switch Target Cluster."
-        };
+        this._statusBarPin = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE);
+        this._statusBarPin.command = "hpccPlatform.pin";
 
         vscode.commands.registerCommand("hpccPlatform.pin", async () => {
             const eclConfig = vscode.workspace.getConfiguration("ecl");
@@ -162,6 +142,7 @@ class SessionManager {
                     }
                 }
             }
+            this._isActiveECL = vscode.window.activeTextEditor && vscode.languages.match(ECL_MODE, vscode.window.activeTextEditor.document) > 0;
             this.refreshStatusBar();
         });
 
@@ -180,6 +161,8 @@ class SessionManager {
                     break;
             }
         });
+
+        this._isActiveECL = vscode.window.activeTextEditor && vscode.languages.match(ECL_MODE, vscode.window.activeTextEditor.document) > 0;
 
         const eclConfig = vscode.workspace.getConfiguration("ecl");
         const launchConfig = eclConfig.get<string>("launchConfiguration");
@@ -354,19 +337,19 @@ class SessionManager {
         }
         this._statusBarPin.text = isPinned ? "$(pinned)" : "$(pin)";
         this._statusBarPin.tooltip = (isPinned ? "Unpin" : "Pin") + " launch configutation to current document.";
-        this.session ? this._statusBarPin.show() : this._statusBarPin.hide();
+        this._isActiveECL ? this._statusBarPin.show() : this._statusBarPin.hide();
     }
 
     refreshLaunchStatusBar() {
         this._statusBarLaunch.text = this.session?.name;
         this._statusBarLaunch.tooltip = "HPCC Platform Launch Configuration";
-        this.session ? this._statusBarLaunch.show() : this._statusBarLaunch.hide();
+        this._isActiveECL ? this._statusBarLaunch.show() : this._statusBarLaunch.hide();
     }
 
     refreshTCStatusBar() {
         this._statusBarTargetCluster.text = this.session.targetCluster;
         this._statusBarTargetCluster.tooltip = "HPCC Platform TargetCluster";
-        this.session ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
+        this._isActiveECL ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
     }
 
     refreshStatusBar() {
