@@ -1,8 +1,6 @@
-import { WUQuery, TargetCluster, Workunit, WUUpdate } from "@hpcc-js/comms";
 import * as vscode from "vscode";
-import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl, action } from "./launchConfig";
-import { eclConfigurationProvider } from "./configProvider";
-import { eclCommands } from "../ecl/command";
+import { WUQuery, Workunit } from "@hpcc-js/comms";
+import { LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl } from "./launchConfig";
 
 class Session {
     private _launchRequestArgs?: LaunchRequestArguments;
@@ -27,10 +25,18 @@ class Session {
         return this._launchRequestArgs?.user;
     }
 
+    private _statusBarPin: vscode.StatusBarItem;
     private _statusBarLaunch: vscode.StatusBarItem;
     private _statusBarTargetCluster: vscode.StatusBarItem;
 
     constructor() {
+        this._statusBarPin = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 2);
+        this._statusBarPin.command = {
+            command: "hpccPlatform.pin",
+            arguments: [],
+            title: "Pin launch configutation"
+        };
+
         this._statusBarLaunch = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, Number.MIN_VALUE + 1);
         this._statusBarLaunch.command = {
             command: "hpccPlatform.switch",
@@ -61,6 +67,21 @@ class Session {
             }
         });
 
+        vscode.commands.registerCommand("hpccPlatform.pin", async () => {
+            const eclConfig = vscode.workspace.getConfiguration("ecl");
+            const activeUri: string = vscode.window.activeTextEditor?.document?.uri.toString(true) || "";
+            if (activeUri) {
+                const pinnedLaunchConfigurations = eclConfig.get<object>("pinnedLaunchConfigurations");
+                if (pinnedLaunchConfigurations[activeUri]) {
+                    pinnedLaunchConfigurations[activeUri] = undefined;
+                } else {
+                    pinnedLaunchConfigurations[activeUri] = { launchConfiguration: this.name, targetCluster: this._targetCluster };
+                }
+                await eclConfig.update("pinnedLaunchConfigurations", pinnedLaunchConfigurations);
+                this.refreshPinStatusBar();
+            }
+        });
+
         vscode.commands.registerCommand("hpccPlatform.switch", async () => {
             this.switch();
         });
@@ -80,7 +101,15 @@ class Session {
         vscode.commands.registerCommand("ecl.compile", () => {
             this.compile(vscode.window.activeTextEditor.document);
         });
-        this.switchTo();
+
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            this.refreshPinStatusBar();
+        });
+
+        const eclConfig = vscode.workspace.getConfiguration("ecl");
+        const launchConfig = eclConfig.get<string>("launchConfiguration");
+        const targetCluster = eclConfig.get<object>("targetCluster")[launchConfig];
+        this.switchTo(launchConfig, targetCluster);
     }
 
     wuDetailsUrl(wuid: string) {
@@ -144,11 +173,17 @@ class Session {
             const configs: LaunchRequestArguments[] = this.configurations();
             this._launchRequestArgs = configs.filter(c => c.name === name)[0] || configs[0];
             this._launchConfig = this._launchRequestArgs ? new LaunchConfig(this._launchRequestArgs) : undefined;
-            this.refreshStatusBar();
             this._onDidChangeSession.fire(this._launchRequestArgs);
         }
         this._targetCluster = targetCluster || this._launchRequestArgs?.targetCluster || undefined;
-        this.refreshTCStatusBar();
+
+        const eclConfig = vscode.workspace.getConfiguration("ecl");
+        eclConfig.update("launchConfiguration", name);
+        const targetClusters = eclConfig.get("targetCluster");
+        targetClusters[name] = targetCluster;
+        eclConfig.update("targetCluster", targetClusters);
+
+        this.refreshStatusBar();
     }
 
     switch(): void {
@@ -175,16 +210,16 @@ class Session {
         if (this._launchConfig) {
             this._launchConfig.targetClusters().then(targetClusters => {
                 const input = vscode.window.createQuickPick();
-                input.items = targetClusters.map(tc => {
+                input.items = [{ label: "Auto Detect" }, ...targetClusters.map(tc => {
                     return {
                         label: tc.Name
                     };
-                });
+                })];
 
                 input.onDidChangeSelection(async items => {
                     const item = items[0];
                     if (item) {
-                        this.switchTo(this.name, item.label);
+                        this.switchTo(this.name, item.label === "Auto Detect" ? undefined : item.label);
                     }
                     input.hide();
                 });
@@ -193,16 +228,36 @@ class Session {
         }
     }
 
-    refreshStatusBar() {
+    refreshPinStatusBar() {
+        let isPinned = false;
+        const activeUri: string = vscode.window.activeTextEditor?.document?.uri.toString(true) || "";
+        if (activeUri) {
+            const eclConfig = vscode.workspace.getConfiguration("ecl");
+            isPinned = false;
+            const pinnedLaunchConfigurations = eclConfig.get<object>("pinnedLaunchConfigurations");
+            isPinned = !!pinnedLaunchConfigurations[activeUri];
+        }
+        this._statusBarPin.text = isPinned ? "$(pinned)" : "$(pin)";
+        this._statusBarPin.tooltip = (isPinned ? "Unpin" : "Pin") + " launch configutation to current document.";
+        this._launchRequestArgs ? this._statusBarPin.show() : this._statusBarPin.hide();
+    }
+
+    refreshLaunchStatusBar() {
         this._statusBarLaunch.text = this._launchRequestArgs?.name;
-        this._statusBarLaunch.tooltip = this._launchRequestArgs?.serverAddress;
+        this._statusBarLaunch.tooltip = "HPCC Platform Launch Configuration";
         this._launchRequestArgs ? this._statusBarLaunch.show() : this._statusBarLaunch.hide();
     }
 
     refreshTCStatusBar() {
         this._statusBarTargetCluster.text = this._targetCluster;
-        this._statusBarTargetCluster.tooltip = this._targetCluster;
+        this._statusBarTargetCluster.tooltip = "HPCC Platform TargetCluster";
         this._targetCluster ? this._statusBarTargetCluster.show() : this._statusBarTargetCluster.hide();
+    }
+
+    refreshStatusBar() {
+        this.refreshPinStatusBar();
+        this.refreshLaunchStatusBar();
+        this.refreshTCStatusBar();
     }
 }
 export const session: Session = new Session();

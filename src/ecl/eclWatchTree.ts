@@ -17,6 +17,7 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
 
     private constructor(ctx: vscode.ExtensionContext) {
         this._ctx = ctx;
+        this.updateMenu();
 
         this._treeView = vscode.window.createTreeView("hpccPlatform", {
             treeDataProvider: this,
@@ -55,7 +56,13 @@ export class ECLWatchTree implements vscode.TreeDataProvider<ECLNode> {
         return eclWatchTree;
     }
 
+    updateMenu() {
+        vscode.commands.executeCommand("setContext", "hpccPlatform.isMyWorkunits", !this._myWorkunits);
+        vscode.commands.executeCommand("setContext", "hpccPlatform.isAllWorkunits", this._myWorkunits);
+    }
+
     refresh(): void {
+        this.updateMenu();
         this._onDidChangeTreeData.fire(undefined);
     }
 

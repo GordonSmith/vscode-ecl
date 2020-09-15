@@ -281,6 +281,11 @@
         }
       },
       {
+        "command": "hpccPlatform.pin",
+        "title": "Pin launch configutation",
+        "description": "Pin launch configutation to current document."
+      },
+      {
         "command": "hpccPlatform.switch",
         "title": "Switch HPCC Platform",
         "description": "Switch to different HPCC Platform instance.",
@@ -474,12 +479,12 @@
         },
         {
           "command": "hpccPlatform.myWorkunits",
-          "when": "view == hpccPlatform",
+          "when": "view == hpccPlatform && hpccPlatform.isMyWorkunits",
           "group": "navigation@10"
         },
         {
           "command": "hpccPlatform.allWorkunits",
-          "when": "view == hpccPlatform",
+          "when": "view == hpccPlatform && hpccPlatform.isAllWorkunits",
           "group": "navigation@20"
         },
         {
@@ -499,7 +504,7 @@
         },
         {
           "command": "ecl.watch.lite.openECLWatchExternal",
-          "when": "view == ecl.watch.lite",
+          "when": "view == ecl.watch.lite && ecl.watch.lite.hasWuid",
           "group": "navigation@100"
         }
       ],
@@ -654,6 +659,12 @@
           "default": "",
           "description": "Override eclcc auto detection."
         },
+        "ecl.eclccLogfile": {
+          "type": "string",
+          "scope": "resource",
+          "default": "",
+          "description": "Write eclcc logfile to specified file."
+        },
         "ecl.legacyMode": {
           "type": "boolean",
           "scope": "resource",
@@ -665,6 +676,24 @@
           "scope": "application",
           "default": false,
           "description": "Debug level logging (requires restart)."
+        },
+        "ecl.launchConfiguration": {
+          "type": "string",
+          "scope": "resource",
+          "default": "",
+          "description": "Default launch configuration."
+        },
+        "ecl.targetCluster": {
+          "type": "object",
+          "scope": "resource",
+          "default": {},
+          "description": "Target cluster (per launch configuration)."
+        },
+        "ecl.pinnedLaunchConfigurations": {
+          "type": "object",
+          "scope": "resource",
+          "default": {},
+          "description": "Pinned launch configurations."
         },
         "dashy.libraryLocation": {
           "type": "string",

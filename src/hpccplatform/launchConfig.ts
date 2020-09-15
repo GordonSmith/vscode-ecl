@@ -55,7 +55,6 @@ export interface Credentials {
 
 const credentials: { [serverAddress: string]: Credentials } = {};
 
-const eclConfig = vscode.workspace.getConfiguration("ecl");
 const configPrefix = "${config:ecl.";
 
 type ValueOf<T> = T[keyof T];
@@ -149,6 +148,7 @@ export class LaunchConfig {
         let retVal = this._config[key];
         if (typeof retVal === "string" && retVal.indexOf(configPrefix) === 0) {
             const configKey = retVal.substring(configPrefix.length, retVal.length - 1);
+            const eclConfig = vscode.workspace.getConfiguration("ecl");
             retVal = eclConfig.get(configKey);
         }
         return retVal;
@@ -318,6 +318,7 @@ export class LaunchConfig {
                     default:
                         if (typeof value === "string" && value.indexOf(configPrefix) === 0) {
                             const configKey = value.substring(configPrefix.length, value.length - 1);
+                            const eclConfig = vscode.workspace.getConfiguration("ecl");
                             debugConfiguration[key] = eclConfig.get(configKey);
                         }
                 }

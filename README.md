@@ -74,6 +74,9 @@ The following Visual Studio Code settings are available for the ECL extension.  
   // Override eclcc auto detection.
   "ecl.eclccPath": ""
 
+  // Write eclcc logfile to specified file.
+  "ecl.eclccLogfile": ""
+
   // Add '-legacy' argument to eclcc.
   "ecl.legacyMode": false
 

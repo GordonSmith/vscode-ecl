@@ -101,6 +101,7 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
                 this._webviewView.show(true);
             }
         }
+        vscode.commands.executeCommand("setContext", "ecl.watch.lite.hasWuid", !!wuid);
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

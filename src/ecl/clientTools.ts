@@ -1,15 +1,16 @@
-import { ClientTools, locateAllClientTools, locateClientTools as commsLocateClientTools } from "@hpcc-js/comms";
 import { QuickPickItem, window, workspace } from "vscode";
+import { ClientTools, locateAllClientTools, locateClientTools as commsLocateClientTools } from "@hpcc-js/comms";
 import { eclStatusBar } from "./status";
-
-const eclConfig = workspace.getConfiguration("ecl");
 
 function showEclStatus(version: string, overriden: boolean, tooltip: string) {
     eclStatusBar.showClientTools(`${overriden ? "*" : ""}${version}`, tooltip);
 }
 
 export function locateClientTools(build?: string, cwd?: string, includeFolders?: string[], legacyMode?: boolean): Promise<ClientTools> {
+    const eclConfig = workspace.getConfiguration("ecl");
     const eclccPath = eclConfig.get("eclccPath") as string;
+    const eclccLogfile = eclConfig.get("eclccLogfile");
+    //return commsLocateClientTools(eclccPath, build, cwd, includeFolders, legacyMode, eclccLogfile ? [`--logfile=${path.normalize(eclccLogfile)}`] : []).then(clientTools => {
     return commsLocateClientTools(eclccPath, build, cwd, includeFolders, legacyMode).then(clientTools => {
         let eclccPathOverriden = false;
         if (clientTools) {
@@ -44,6 +45,7 @@ export function selectCTVersion() {
         input.onDidChangeSelection(items => {
             const item = items[0];
             if (item) {
+                const eclConfig = workspace.getConfiguration("ecl");
                 eclConfig.update("eclccPath", item.eclccPath);
                 showEclStatus(item.label, !!item.eclccPath, !!item.eclccPath ? item.eclccPath : "");
             }
