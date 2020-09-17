@@ -129,6 +129,7 @@ class SessionManager {
         });
 
         vscode.window.onDidChangeActiveTextEditor(() => {
+            const prevBaseUrl = this.session.baseUrl();
             const activeUri: string = this.activeUri;
             this._pinnedSession = undefined;
             if (activeUri) {
@@ -143,6 +144,9 @@ class SessionManager {
                 }
             }
             this._isActiveECL = vscode.window.activeTextEditor && vscode.languages.match(ECL_MODE, vscode.window.activeTextEditor.document) > 0;
+            if (prevBaseUrl !== this.session.baseUrl()) {
+                this._onDidChangeSession.fire(this.session.launchRequestArgs);
+            }
             this.refreshStatusBar();
         });
 
