@@ -73,5 +73,16 @@
             ],
             "webRoot": "${workspaceRoot}"
         },
+        {
+            "name": "Debug ANTLR4 grammar",
+            "type": "antlr-debug",
+            "request": "launch",
+            "input": "./simple.kel",
+            "grammar": "grammar/kel/KELParser.g4",
+            // "actionFile": "grammars/exampleActions.js",
+            "startRule": "program",
+            "printParseTree": true,
+            "visualParseTree": true
+        }
     ]
 }

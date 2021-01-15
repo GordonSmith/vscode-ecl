@@ -9,6 +9,7 @@ module.exports = {
         "eslint:recommended",
         "plugin:@typescript-eslint/recommended",
     ],
+    ignorePatterns: ["./src/grammar/*.*"],
     env: {
         "browser": true,
         "amd": true
