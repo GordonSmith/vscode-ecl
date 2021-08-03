@@ -1,33 +1,22 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "play (https)",
+            "name": "dataland (https)",
             "type": "ecl",
             "request": "launch",
             "protocol": "https",
-            "serverAddress": "play.hpccsystems.com",
-            "port": 18010,
-            "targetCluster": "thor",
-            "rejectUnauthorized": true,
+            "serverAddress": "boca-dataland-dev.hpcc.risk.regn.net",
+            "port": 18012,
+            "targetCluster": "thor50_dev",
+            "rejectUnauthorized": false,
             "resultLimit": 100,
-            "timeoutSecs": 60,
-            "user": "vscode_user",
-            "password": ""
-        },
-        {
-            "name": "play",
-            "type": "ecl",
-            "request": "launch",
-            "protocol": "http",
-            "serverAddress": "play.hpccsystems.com",
-            "port": 8010,
-            "targetCluster": "thor",
-            "rejectUnauthorized": true,
-            "resultLimit": 100,
-            "timeoutSecs": 60,
-            "user": "vscode_user",
-            "password": ""
+            "timeoutSecs": 6000,
+            "user": "gosmith",
+            "password": "NetRu%nJA%EQiuT5gS@3"
         },
         {
             "name": "localhost",
@@ -36,33 +25,7 @@
             "protocol": "http",
             "serverAddress": "localhost",
             "port": 8010,
-            "targetCluster": "thor",
-            "rejectUnauthorized": true,
-            "resultLimit": 100,
-            "timeoutSecs": 60,
-            "user": "vscode_user",
-            "password": ""
-        },
-        {
-            "name": "dataland",
-            "type": "ecl",
-            "request": "launch",
-            "protocol": "https",
-            "serverAddress": "boca-dataland-dev.hpcc.risk.regn.net",
-            "port": 18012,
-            "targetCluster": "thor",
-            "rejectUnauthorized": true,
-            "resultLimit": 100,
-            "timeoutSecs": 60
-        },
-        {
-            "name": "offline",
-            "type": "ecl",
-            "request": "launch",
-            "protocol": "http",
-            "serverAddress": "apple.ie",
-            "port": 8010,
-            "targetCluster": "thor",
+            "targetCluster": "hthor",
             "rejectUnauthorized": true,
             "resultLimit": 100,
             "timeoutSecs": 60,

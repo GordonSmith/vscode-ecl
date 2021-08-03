@@ -51,7 +51,13 @@ function checkUri(uri: vscode.Uri, eclConfig: vscode.WorkspaceConfiguration): Pr
 }
 
 export function checkTextDocument(document: vscode.TextDocument, eclConfig: vscode.WorkspaceConfiguration): Promise<void> {
-    if (document.languageId !== "ecl") return Promise.resolve();
+    switch (document.languageId) {
+        case "ecl":
+        case "omd":
+            break;
+        default:
+            return Promise.resolve();
+    }
     return checkUri(document.uri, eclConfig);
 }
 

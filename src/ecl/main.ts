@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { ECLCommands } from "./command";
+import { eclCommands, ECLCommands } from "./command";
 import { ECLDiagnostic } from "./diagnostic";
 import { ECLDocumentSymbolProvider } from "./documentSymbolProvider";
 import { ECLEditor } from "./editor";
@@ -13,7 +13,7 @@ import { HPCCResources } from "./hpccResources";
 const eclConfig = vscode.workspace.getConfiguration("ecl");
 initLogger(eclConfig.get<boolean>("debugLogging") ? Level.debug : Level.info);
 
-export function activate(ctx: vscode.ExtensionContext): void {
+export function activate(ctx: vscode.ExtensionContext) {
     ECLDiagnostic.attach(ctx);
     ECLCommands.attach(ctx);
     ECLEditor.attach(ctx);
@@ -23,4 +23,5 @@ export function activate(ctx: vscode.ExtensionContext): void {
     ECLWatchPanelView.attach(ctx);
     ECLTerminal.attach(ctx);
     HPCCResources.attach(ctx);
+    return eclCommands;
 }

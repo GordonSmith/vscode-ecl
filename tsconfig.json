@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "baseUrl": ".",
         "rootDir": "./src",
         "module": "es6",
         "moduleResolution": "node",
@@ -20,12 +21,7 @@
             "dom",
             "ES2019"
         ],
-        "paths": {
-            "@hpcc-js/*": [
-                "./node_modules/@hpcc-js/*",
-                "../hpcc-js/packages/*"
-            ]
-        }
+        "paths": {}
     },
     "include": [
         "./src/**/*.ts",

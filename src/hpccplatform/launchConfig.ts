@@ -2,11 +2,14 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import * as temp from "temp";
 import { AccountService, Activity, CodesignService, Workunit, WUQuery, WUUpdate, Topology, EclccErrors, IOptions, LogicalFile, TpLogicalClusterQuery, attachWorkspace, IECLErrorWarning, locateClientTools, ClientTools, Service } from "@hpcc-js/comms";
 import { scopedLogger } from "@hpcc-js/util";
 import { LaunchConfigState, LaunchMode, LaunchProtocol, LaunchRequestArguments } from "../debugger/launchRequestArguments";
 import { showEclStatus } from "../ecl/clientTools";
 import localize from "../util/localize";
+
+temp.track();
 
 const logger = scopedLogger("launchConfig.ts");
 
@@ -19,6 +22,39 @@ function xmlFile(programPath: string): Promise<{ err: EclccErrors, content: stri
             resolve({ err: new EclccErrors("", []), content });
         });
     });
+}
+
+interface ParsedECL {
+    ecl: string;
+    offset: number;
+    lineOffset: number;
+}
+
+function createParsedECL(ecl: string, offset: number, origStr: string): ParsedECL {
+    const text = origStr.substr(0, origStr.indexOf(ecl));
+    const lineOffset = text.split("\n").length - 1;
+    return {
+        ecl,
+        offset,
+        lineOffset
+    };
+}
+
+export function omd2ecl(_: string): ParsedECL[] {
+    const eclArr: ParsedECL[] = [];
+    //  Load Markdown  ---
+    const re = /(```(?:\s|\S)[\s\S]*?```)/g;
+    let match = re.exec(_);
+    while (match !== null) {
+        const outer = match[0];
+        if (outer.indexOf("```ecl ") === 0 || outer.indexOf("```ecl\n") === 0 || outer.indexOf("```ecl\r\n") === 0) {
+            const prefixLen = 6;
+            const inner = outer.substring(prefixLen, outer.length - prefixLen);
+            eclArr.push(createParsedECL(inner, match.index + prefixLen, _));
+        }
+        match = re.exec(_);
+    }
+    return eclArr;
 }
 
 export {
@@ -59,7 +95,7 @@ export class WorkunitsService extends Service {
     }
 }
 
-export function launchConfigurations(refresh = false): string[] {
+export function launchConfigurations(refresh = false, warnIfMissing = false): string[] {
     if (!g_launchConfigurations || refresh === true) {
         g_launchConfigurations = {};
 
@@ -73,9 +109,11 @@ export function launchConfigurations(refresh = false): string[] {
     }
     const retVal = Object.keys(g_launchConfigurations);
     if (retVal.length === 0) {
-        vscode.window.showErrorMessage(localize("No ECL Launch configurations."), localize("Create ECL Launch")).then(response => {
-            vscode.commands.executeCommand("workbench.action.debug.configure");
-        });
+        if (warnIfMissing) {
+            vscode.window.showErrorMessage(localize("No ECL Launch configurations."), localize("Create ECL Launch")).then(response => {
+                vscode.commands.executeCommand("workbench.action.debug.configure");
+            });
+        }
 
         g_launchConfigurations["not found"] = {
             name: "not found",
@@ -463,22 +501,57 @@ export class LaunchConfig implements LaunchRequestArguments {
         });
     }
 
+    createTempFile(folder: string, content: string): Promise<string> {
+        return new Promise<string>(resolve => {
+            temp.open({ suffix: ".ecl", dir: folder }, (err, info) => {
+                if (err) throw err;
+                fs.write(info.fd, content, (err) => {
+                    if (err) throw err;
+                    fs.close(info.fd, (err) => {
+                        if (err) throw err;
+                        resolve(info.path);
+                    });
+                });
+            });
+        });
+    }
+
     checkSyntax(fileUri: vscode.Uri): Promise<CheckResponse> {
-        return this.locateClientTools(fileUri).then(clientTools => {
+        return this.locateClientTools(fileUri).then(async clientTools => {
             if (!clientTools) {
-                throw new Error();
+                throw new Error("Unable to locate Client Tools");
             } else {
-                logger.debug(`syntaxCheck-promise:  ${fileUri.fsPath}`);
-                return clientTools.syntaxCheck(fileUri.fsPath, ["-syntax", ...this.eclccSyntaxArgs]).then((errors) => {
+                let fsPath = fileUri.fsPath;
+                let eclArr: ParsedECL[] = [];
+                if (path.extname(fsPath).toLowerCase() === ".omd") {
+                    const omd = fs.readFileSync(fsPath, "utf8");
+                    eclArr = omd2ecl(omd);
+                    fsPath = await this.createTempFile(path.dirname(fsPath), eclArr.map(row => row.ecl).join("\n"));
+                }
+                logger.debug(`syntaxCheck-promise:  ${fsPath}`);
+                return clientTools.syntaxCheck(fsPath, ["-syntax", ...this.eclccSyntaxArgs]).then((errors) => {
                     if (errors.hasUnknown()) {
-                        logger.warning(`syntaxCheck-warning:  ${fileUri.fsPath} ${errors.unknown().toString()}`);
+                        logger.warning(`syntaxCheck-warning:  ${fsPath} ${errors.unknown().toString()}`);
                     }
-                    logger.debug(`syntaxCheck-resolve:  ${fileUri.fsPath} ${errors.errors().length} total.`);
-                    return { errors: errors.all(), checked: errors.checked() };
+                    logger.debug(`syntaxCheck-resolve:  ${fsPath} ${errors.errors().length} total.`);
+                    return {
+                        errors: errors.all().map(err => {
+                            if (err.filePath === fsPath) {
+                                err.filePath = fileUri.fsPath;
+                                err.line += eclArr[0].lineOffset;
+                            }
+                            return err;
+                        }),
+                        checked: errors.checked().map(checked => {
+                            return checked === fsPath ? fileUri.fsPath : checked;
+                        })
+                    };
                 }).catch(e => {
-                    logger.debug(`syntaxCheck-reject:  ${fileUri.fsPath} ${e.msg}`);
-                    vscode.window.showInformationMessage(`${localize("Syntax check exception")}:  ${fileUri.fsPath} ${e.msg}`);
+                    logger.debug(`syntaxCheck-reject:  ${fsPath} ${e.msg}`);
+                    vscode.window.showInformationMessage(`${localize("Syntax check exception")}:  ${fsPath} ${e.msg}`);
                     return Promise.resolve({ errors: [], checked: [] });
+                }).finally(() => {
+                    temp.cleanup();
                 });
             }
         }).catch(e => {

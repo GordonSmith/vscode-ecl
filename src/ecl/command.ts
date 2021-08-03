@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
-import { LaunchRequestArguments } from "../hpccplatform/launchConfig";
+import { launchConfigurations, LaunchRequestArguments } from "../hpccplatform/launchConfig";
 import { checkTextDocument, checkWorkspace } from "./check";
 import { selectCTVersion } from "./clientTools";
 import { eclDiagnostic } from "./diagnostic";
@@ -45,6 +45,10 @@ export class ECLCommands {
             eclCommands = new ECLCommands(ctx);
         }
         return eclCommands;
+    }
+
+    hasLaunchConfigurations(): boolean {
+        return launchConfigurations(true).filter(lc => lc !== "not found").length > 0;
     }
 
     checkSyntax() {

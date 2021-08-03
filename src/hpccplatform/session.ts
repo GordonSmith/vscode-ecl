@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
 import { WUQuery, Workunit, ClientTools } from "@hpcc-js/comms";
 import { launchConfigurations, LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl, CheckResponse, launchConfiguration } from "./launchConfig";
 import { LaunchConfigState } from "../debugger/launchRequestArguments";
@@ -70,9 +69,6 @@ class Session {
     }
 
     checkSyntax(uri: vscode.Uri) {
-        if (path.extname(uri.fsPath).toLowerCase() === ".omd") {
-            debugger;
-        }
         return this._launchConfig.checkSyntax(uri);
     }
 

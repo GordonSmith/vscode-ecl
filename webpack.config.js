@@ -7,7 +7,7 @@ const path = require("path");
 const resolve = {
     fallback: {
         "@hpcc-js/comms": path.resolve(__dirname, "../hpcc-js/packages/comms/dist/index.node.js"),
-        "@hpcc-js": path.resolve(__dirname, "../hpcc-js/packages")
+        "@hpcc-js/observable-md": path.resolve(__dirname, "../hpcc-js/packages")
     }
 };
 
@@ -49,7 +49,9 @@ const config = [{
     target: "web", // vscode extensions run in a Node.js-context 📖 -> https://webpack.js.org/configuration/node/
 
     entry: {
-        eclwatch: "./lib-es6/eclwatch.js"
+        eclwatch: "./lib-es6/eclwatch.js",
+        webview: "./lib-es6/webview.js"
+
     },
 
     output: { // the bundle is stored in the 'dist' folder (check package.json), 📖 -> https://webpack.js.org/configuration/output/
