@@ -50,6 +50,7 @@
     "@hpcc-js/dgrid": "^2.17.0",
     "@hpcc-js/loader": "^2.82.0",
     "@hpcc-js/marshaller": "^2.23.89",
+    "@hpcc-js/observable-md": "^2.40.0",
     "@hpcc-js/util": "^2.37.0",
     "@material-ui/core": "^4.12.3",
     "@types/mocha": "^7.0.2",
@@ -58,6 +59,7 @@
     "@types/react-dom": "^16.9.14",
     "@types/tmp": "^0.2.1",
     "@types/vscode": "^1.60.0",
+    "@types/vscode-notebook-renderer": "^1.60.0",
     "@typescript-eslint/eslint-plugin": "^4.30.0",
     "@typescript-eslint/parser": "^4.30.0",
     "adm-zip": "^0.4.16",
@@ -1002,6 +1004,16 @@
           {
             "filenamePattern": "*.eclnb"
           }
+        ]
+      }
+    ],
+    "notebookRenderer": [
+      {
+        "id": "ojs-notebook-renderer",
+        "displayName": "ObservableJS Renderer",
+        "entrypoint": "./dist/renderer.js",
+        "mimeTypes": [
+          "hpcc.ecl-notebook/ojs"
         ]
       }
     ],

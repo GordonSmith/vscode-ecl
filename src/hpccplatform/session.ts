@@ -308,11 +308,20 @@ class SessionManager {
             return this.session.submit(doc.uri).then(wu => {
                 this._onDidCreateWorkunit.fire(wu);
                 return wu;
-            }).catch(e => {
-                vscode.window.showErrorMessage(e.message);
             });
         }
     }
+
+    // submit(doc: { uri: vscode.Uri }) {
+    //     if (this.session) {
+    //         return this.session.submit(doc.uri).then(wu => {
+    //             this._onDidCreateWorkunit.fire(wu);
+    //             return wu;
+    //         }).catch(e => {
+    //             vscode.window.showErrorMessage(e.message);
+    //         });
+    //     }
+    // }
 
     compile(doc: { uri: vscode.Uri }) {
         if (this.session) {

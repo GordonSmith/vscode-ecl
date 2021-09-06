@@ -1,8 +1,57 @@
 /* eslint-disable */
 
-"use strict";
-
+const { DefinePlugin } = require("webpack");
 const path = require("path");
+
+const makeConfig = (argv, { entry, out, target, library = "commonjs" }) => ({
+    mode: argv.mode,
+    devtool: argv.mode === "production" ? false : "inline-source-map",
+    entry,
+    target,
+    output: {
+        path: path.join(__dirname, path.dirname(out)),
+        filename: path.basename(out),
+        publicPath: "",
+        libraryTarget: library,
+        chunkFormat: library,
+    },
+    resolve: {
+        extensions: [".js", ".jsx", ".css"],
+    },
+    externals: {
+        vscode: "commonjs vscode" // the vscode-module is created on-the-fly and must be excluded. Add other modules that cannot be webpack'ed, 📖 -> https://webpack.js.org/configuration/externals/
+    },
+    experiments: {
+        outputModule: true,
+    },
+    module: {
+        rules: [
+            // Allow importing CSS modules:
+            {
+                test: /\.css$/,
+                use: [
+                    "style-loader",
+                    {
+                        loader: "css-loader",
+                        options: {
+                            importLoaders: 1,
+                            modules: true,
+                        },
+                    },
+                ],
+            },
+        ],
+    },
+    plugins: [
+        new DefinePlugin({
+            // Path from the output filename to the output directory
+            __webpack_relative_entrypoint_to_root__: JSON.stringify(
+                path.posix.relative(path.posix.dirname("/index.js"), "/"),
+            ),
+            scriptUrl: "import.meta.url",
+        }),
+    ],
+});
 
 /**@type {import('webpack').Configuration}*/
 const config = [{
@@ -66,7 +115,7 @@ const config = [{
     module: {
         rules: [{
             test: /\.css$/i,
-            use: ['style-loader', 'css-loader'],
+            use: ["style-loader", "css-loader"],
         }, {
             test: /\.js$/,
             use: ["source-map-loader"],
@@ -81,6 +130,14 @@ const config = [{
     },
 
     plugins: []
-}];
+},
+];
 
 module.exports = config;
+
+module.exports = (env, argv) => [
+    ...config,
+    makeConfig(argv, { entry: './lib-es6/renderer.js', out: './dist/renderer.js', target: 'web', library: 'module' }),
+    // makeConfig(argv, { entry: './lib-es6/extension.js', out: './dist/extension.js', target: 'node' }),
+    // makeConfig(argv, { entry: './src/extension/extension.ts', out: './out/extension/extension.web.js', target: 'webworker' }),
+];
