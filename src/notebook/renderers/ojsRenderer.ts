@@ -15,6 +15,7 @@ interface Renderer {
 interface OutputItem {
     text: string;
     element?: HTMLElement;
+    placeholder?: HTMLElement;
     renderer: Renderer;
 }
 
@@ -26,14 +27,17 @@ export const activate: ActivationFunction = context => {
 
     async function update(id: string | number, renderer: Renderer, text: string, element?: HTMLElement) {
 
-        if (cells[id] && ((!cells[id].element && element) || cells[id].text !== text)) {
+        if (cells[id] && cells[id].text !== text) {
             disposeCell(id);
+        } else if (cells[id]?.placeholder && !cells[id].element && element) {
+            element.appendChild(cells[id]?.placeholder);
         }
         if (!cells[id]) {
-            cells[id] = {
+            const cell = cells[id] = {
                 renderer,
                 text,
-                element
+                element,
+                placeholder: document.createElement("div")
             };
             const cellFunc: CellFunc = await renderer.define.set({
                 // ...data.node,
@@ -43,34 +47,23 @@ export const activate: ActivationFunction = context => {
             });
             await new Promise<void>(resolve => {
                 cellFunc(renderer.runtime, renderer.main, (name?: string, id?: string | number): ohq.Inspector => {
+                    const inspector = new Inspector(cell.placeholder);
                     if (element) {
-                        const div = document.createElement("div");
-                        element.appendChild(div);
-                        const inspector = new Inspector(div);
-                        return {
-                            _node: inspector._node,
-                            pending() {
-                                div.innerText = "...pending...";
-                                inspector.pending();
-                            },
-                            fulfilled(value: any, name?: string) {
-                                resolve();
-                                inspector.fulfilled(value, name);
-                            },
-                            rejected(error: any, name?: string) {
-                                resolve();
-                                inspector.rejected(error, name);
-                            }
-                        };
+                        element.appendChild(cell.placeholder);
                     }
                     return {
+                        _node: inspector._node,
                         pending() {
+                            cell.placeholder.innerText = "...pending...";
+                            inspector.pending();
                         },
-                        fulfilled(value: any) {
+                        fulfilled(value: any, name?: string) {
                             resolve();
+                            inspector.fulfilled(value, name);
                         },
-                        rejected(error: any) {
+                        rejected(error: any, name?: string) {
                             resolve();
+                            inspector.rejected(error, name);
                         }
                     };
                 });

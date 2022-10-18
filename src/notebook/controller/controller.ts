@@ -65,16 +65,16 @@ export class Controller {
         this._controller.dispose();
     }
 
-    private async executeECL(cell: vscode.NotebookCell): Promise<vscode.NotebookCellOutputItem[]> {
+    private async executeECL(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]): Promise<vscode.NotebookCellOutputItem> {
         let tmpPath: string;
-        const outputItems: vscode.NotebookCellOutputItem[] = [];
+        let outputItem: vscode.NotebookCellOutputItem;
         try {
             const basename = path.basename(cell.document.uri.fsPath, ".eclnb");
             const dirname = path.dirname(cell.document.uri.fsPath);
             let code = "";
             const cells = cell.notebook.getCells(new vscode.NotebookRange(0, cell.index));
             for (const otherCell of cells) {
-                if (otherCell.document.languageId === cell.document.languageId) {
+                if (!serializer.node(otherCell).private && otherCell.document.languageId === cell.document.languageId) {
                     code += otherCell.document.getText();
                 }
             }
@@ -101,49 +101,44 @@ export class Controller {
                     });
                 }));
 
-                const ojsOutput: OJSOutput = serializer.ojsOutput(cell, cell.notebook.uri, []);
+                const ojsOutput: OJSOutput = serializer.ojsOutput(cell, notebook.uri, otherCells);
                 ojsOutput.cell.ojsSource = "";
                 try {
                     for (const key in outputs) {
                         ojsOutput.cell.ojsSource += `${key} = ${JSON.stringify(outputs[key])};`;
                     }
-                    outputItems.push(vscode.NotebookCellOutputItem.json(ojsOutput, MIME));
+                    outputItem = vscode.NotebookCellOutputItem.json(ojsOutput, MIME);
                 } catch (e) { }
             }
         } catch (e) {
             if (e.message.indexOf("0003:  Definition must contain EXPORT or SHARED value") >= 0) {
-                outputItems.push(vscode.NotebookCellOutputItem.text("...no action..."));
+                outputItem = vscode.NotebookCellOutputItem.text("...no action...");
+            } else {
+                outputItem = vscode.NotebookCellOutputItem.error(e);
             }
-            outputItems.push(vscode.NotebookCellOutputItem.error(e));
         } finally {
             if (tmpPath) {
                 deleteFile(tmpPath);
             }
         }
-        return outputItems;
+        return outputItem;
     }
 
-    private executeOJS(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]): vscode.NotebookCellOutputItem {
+    private executeOJS(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]): Promise<vscode.NotebookCellOutputItem> {
         try {
             parseModule(serializer.ojsSource(cell));
         } catch (e: any) {
             const msg = e?.message ?? "Unknown Error";
-            return vscode.NotebookCellOutputItem.stderr(msg);
+            return Promise.resolve(vscode.NotebookCellOutputItem.stderr(msg));
         }
         const ojsOutput = serializer.ojsOutput(cell, notebook.uri, otherCells);
-        return vscode.NotebookCellOutputItem.json(ojsOutput, MIME);
+        return Promise.resolve(vscode.NotebookCellOutputItem.json(ojsOutput, MIME));
     }
 
-    private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]) {
-        const execution = this._controller.createNotebookCellExecution(cell);
-        execution.executionOrder = ++this._executionOrder;
-        execution.start(Date.now());
-        const outputItems: vscode.NotebookCellOutputItem[] = [];
+    private async createOutputItem(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]) {
         switch (cell.document.languageId) {
             case "ecl":
-                const eclOutputItems = await this.executeECL(cell);
-                eclOutputItems.forEach(eclOutputItem => outputItems.push(eclOutputItem));
-                break;
+                return this.executeECL(cell, notebook, otherCells);
             case "ojs":
             case "omd":
             case "html":
@@ -154,18 +149,24 @@ export class Controller {
             case "sql":
             case "javascript":
             default:
-                outputItems.push(this.executeOJS(cell, notebook, otherCells));
-                break;
+                return this.executeOJS(cell, notebook, otherCells);
         }
+    }
+
+    private async executeCell(cell: vscode.NotebookCell, outputItem: vscode.NotebookCellOutputItem, notebook: vscode.NotebookDocument, otherCells: vscode.NotebookCell[]) {
+        const execution = this._controller.createNotebookCellExecution(cell);
+        execution.executionOrder = ++this._executionOrder;
+        execution.start(Date.now());
         // serializer.node(cell).output = outputItem;
-        await execution.replaceOutput([new vscode.NotebookCellOutput(outputItems)]);
-        execution.end(outputItems.every(op => op.mime.indexOf(".stderr") < 0), Date.now());
+        await execution.replaceOutput([new vscode.NotebookCellOutput([outputItem])]);
+        execution.end([outputItem].every(op => op.mime.indexOf(".stderr") < 0), Date.now());
     }
 
     private async execute(cells: vscode.NotebookCell[], notebook: vscode.NotebookDocument): Promise<void> {
-        for (const cell of cells) {
+        const outputItems = await Promise.all(cells.map(c => this.createOutputItem(c, notebook, [])));
+        for (let i = 0; i < cells.length; ++i) {
             reporter.sendTelemetryEvent("controller.execute.cell");
-            this.executeCell(cell, notebook, cells.filter(c => c !== cell));
+            this.executeCell(cells[i], outputItems[i], notebook, cells.filter(c => c !== cells[i]));
         }
     }
 }

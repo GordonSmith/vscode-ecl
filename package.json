@@ -572,6 +572,22 @@
           "dark": "./resources/dark/eye-closed.svg",
           "light": "./resources/light/eye-closed.svg"
         }
+      },
+      {
+        "command": "notebook.cell.name",
+        "title": "Result Name",
+        "icon": {
+          "dark": "./resources/dark/string.svg",
+          "light": "./resources/light/string.svg"
+        }
+      },
+      {
+        "command": "notebook.cell.db",
+        "title": "Database Name",
+        "icon": {
+          "dark": "./resources/dark/server-process.svg",
+          "light": "./resources/light/server-process.svg"
+        }
       }
     ],
     "menus": {
@@ -792,6 +808,16 @@
           "command": "notebook.cell.private",
           "when": "notebookType == ecl-notebook && cellLangId == ecl && isPrivate",
           "group": "inline@3"
+        },
+        {
+          "command": "notebook.cell.name",
+          "when": "notebookType == ecl-notebook && cellLangId == sql",
+          "group": "inline@400"
+        },
+        {
+          "command": "notebook.cell.db",
+          "when": "notebookType == ecl-notebook && cellLangId == sql",
+          "group": "inline@401"
         }
       ]
     },

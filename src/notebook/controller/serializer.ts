@@ -1,7 +1,7 @@
 import type { ohq } from "@hpcc-js/observablehq-compiler";
 
 import * as path from "path";
-import { NotebookSerializer, CancellationToken, NotebookData, NotebookCellData, NotebookCellKind, NotebookCell, Uri, NotebookCellOutput, NotebookCellOutputItem, NotebookRange } from "vscode";
+import { NotebookSerializer, CancellationToken, NotebookData, NotebookCellData, NotebookCellKind, NotebookCell, Uri, NotebookCellOutput, NotebookCellOutputItem } from "vscode";
 import { v4 as uuidv4 } from "uuid";
 import { TextDecoder, TextEncoder } from "util";
 
@@ -90,7 +90,9 @@ export class Serializer implements NotebookSerializer {
             case "tex":
                 return `tex.block\`${encode(cell.document.getText())}\``;
             case "sql":
-                return `${this.node(cell)?.name} = db.sql\`${encode(cell.document.getText())}\`;`;
+                const sourceName = this.node(cell)?.data?.source?.name ?? "db";
+                const name = this.node(cell)?.name;
+                return `${name ? `${name} = ` : ""}${sourceName}.sql\`${encode(cell.document.getText())}\`;`;
             case "javascript":
                 return `{${cell.document.getText()}}`;
             default:
@@ -108,19 +110,6 @@ export class Serializer implements NotebookSerializer {
     ojsOutput(cell: NotebookCell, uri: Uri, otherCells: NotebookCell[]): OJSOutput {
         const folder = path.dirname(cell.document.uri.path);
 
-        // let globals = {};
-        // const cells = cell.notebook.getCells(new NotebookRange(0, cell.index));
-        // for (const otherCell of cells) {
-        //     otherCell.outputs.forEach(op => {
-        //         op.items.filter(item => item.mime === "application/hpcc.wu+json").forEach(item => {
-        //             try {
-        //                 globals = { ...globals, ...JSON.parse(item.data.toString()) };
-        //             } catch (e) {
-        //             }
-        //         });
-        //     });
-        // }
-
         return {
             notebookId: cell.notebook.metadata.id,
             folder,
@@ -131,23 +120,36 @@ export class Serializer implements NotebookSerializer {
     }
 
     //  NotebookSerializer  ---
+    pocToNotebook(v0: Array<any>): ohq.Notebook {
+        return {
+            id: uuidv4(),
+            files: [],
+            nodes: v0.map((row: any): ohq.Node => {
+                return {
+                    id: uuidv4(),
+                    mode: row.language === "markdown" ? "md" : row.language,
+                    value: row.value
+                };
+            })
+        };
+    }
 
     async deserializeNotebook(content: Uint8Array, _token: CancellationToken): Promise<NotebookData> {
         const contents = new TextDecoder("utf-8").decode(content);
-
-        let notebook: ohq.Notebook;
+        let contentsObj;
         try {
-            notebook = {
-                id: uuidv4(),
-                ...JSON.parse(contents)
-            };
+            contentsObj = JSON.parse(contents);
         } catch {
-            notebook = {
+            contentsObj = {
                 id: uuidv4(),
                 files: [],
                 nodes: []
-            } as unknown as ohq.Notebook;
+            };
         }
+        if (Array.isArray(contentsObj)) {
+            contentsObj = this.pocToNotebook(contentsObj);
+        }
+        const notebook: ohq.Notebook = contentsObj;
 
         const cells = notebook.nodes?.map(node => {
             let kind: NotebookCellKind;
