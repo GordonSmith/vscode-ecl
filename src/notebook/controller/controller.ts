@@ -1,4 +1,4 @@
-import type { IOptions } from "@hpcc-js/comms";
+import type { IOptions, Workunit } from "@hpcc-js/comms";
 
 import * as path from "path";
 import * as vscode from "vscode";
@@ -12,6 +12,23 @@ import { MIME, OJSOutput, serializer } from "./serializer";
 
 function encodeID(id: string) {
     return id.split(" ").join("_");
+}
+
+async function watchUntilComplete(wu: Workunit): Promise<void> {
+    return new Promise(resolve => {
+        const handle = setInterval(async () => {
+            if (wu.isComplete()) {
+                clearInterval(handle);
+                resolve();
+            } else {
+                await wu.refresh();
+                if (wu.isComplete()) {
+                    clearInterval(handle);
+                    resolve();
+                }
+            }
+        }, 5000);
+    });
 }
 
 export class Controller {
@@ -87,7 +104,7 @@ export class Controller {
             deleteFile(tmpPath);
             tmpPath = "";
             if (wu) {
-                await wu.watchUntilComplete();
+                await watchUntilComplete(wu);
                 const results = await wu.fetchResults();
                 const outputs = {};
                 await Promise.all(results.map(result => {
