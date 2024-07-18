@@ -47,7 +47,7 @@
   "dependencies": {
     "@vscode/webview-ui-toolkit": "1.2.2",
     "child-process": "^1.0.2",
-    "csv": "^6.3.5",
+    "csv": "^6.3.9",
     "exceljs": "^4.4.0"
   },
   "devDependencies": {
