@@ -8,6 +8,7 @@ export enum LaunchConfigState {
     Unknown,
     Unreachable,
     Credentials,
+    Error,
     Ok
 }
 

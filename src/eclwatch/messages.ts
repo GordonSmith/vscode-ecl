@@ -1,4 +1,4 @@
-import type { IOptions } from "@hpcc-js/comms";
+import type { IOptions } from "@hpcc-js/comms" with { "resolution-mode": "import" };
 
 export interface State extends IOptions {
     wuid: string;

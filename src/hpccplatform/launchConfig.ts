@@ -283,21 +283,25 @@ export class LaunchConfig implements LaunchRequestArguments {
         return acService.VerifyUser({
             application: "vscode-ecl",
             version: "2"
-        }).then(response => {
+        }).then(() => {
             credentials.verified = true;
             return LaunchConfigState.Ok;
         }).catch(e => {
             logger.debug("verifyUser catch:  -->" + e?.message + "<--");
+            logger.debug("verifyUser catch cause:  -->" + e?.cause + "<--");
             //  old client version warning  ---
             if (e.isESPExceptions && e.Exception.some((exception) => exception.Code === 20043)) {
                 credentials.verified = true;
                 return LaunchConfigState.Ok;
+            } else if (e?.message.indexOf("ECONNREFUSED") >= 0) {
+                return LaunchConfigState.Unreachable;
             }
-            return e?.message.indexOf("ECONNREFUSED") >= 0 ? LaunchConfigState.Unreachable : LaunchConfigState.Credentials;
+            throw e;
         });
     }
 
-    async pingServer(timeout: number = 5000): Promise<LaunchConfigState> {
+    pingPromise: Promise<WsWorkunits.WsWorkunitsPingResponse>;
+    async intervalPing(timeout: number = 5000): Promise<LaunchConfigState> {
         const credentials = this.credentials();
         const timeoutPrommise = new Promise<string>((resolve, reject) => {
             setTimeout(() => {
@@ -310,38 +314,30 @@ export class LaunchConfig implements LaunchRequestArguments {
         const queryPromise = service.Ping();
         return Promise.race([timeoutPrommise, queryPromise])
             .then((response: string | WsWorkunits.WsWorkunitsPingResponse) => {
+                logger.debug("ping response:  " + logger.debug(response));
                 if (typeof response === "string") {
-                    logger.debug("ping response:  " + response);
-                    return LaunchConfigState.Unreachable;
-                } else {
-                    logger.debug("ping response:  " + response);
-                    return response ? LaunchConfigState.Ok : LaunchConfigState.Unreachable;
+                    throw new Error("Fetch Failed", { cause: "Host unreachable" });
                 }
-            }).catch(e => {
-                logger.debug("ping exception:  " + e?.message || e);
-                return e === "timeout" ? LaunchConfigState.Unreachable : LaunchConfigState.Credentials;
+                return LaunchConfigState.Ok;
             });
     }
 
-    private ping(timeout: number = 5000): Promise<LaunchConfigState> {
-        const timeoutPrommise = new Promise<string>((resolve, reject) => {
+    private firstPing(timeout: number = 5000): Promise<LaunchConfigState> {
+        const timeoutPrommise = new Promise<string>(resolve => {
             setTimeout(() => {
                 resolve("timeout");
             }, timeout);
         });
         const queryPromise = this.verifyUser();
         return Promise.race([timeoutPrommise, queryPromise])
-            .then((verified: string | LaunchConfigState) => {
-                if (typeof verified === "string") {
-                    logger.debug("ping verified:  " + verified);
+            .then((response: string | LaunchConfigState) => {
+                if (typeof response === "string") {
+                    logger.debug("firstPing response:  " + response);
                     return LaunchConfigState.Unreachable;
                 } else {
-                    logger.debug("ping verified:  " + verified);
-                    return verified;
+                    logger.debug("firstPing response:  " + JSON.stringify(response));
+                    return response;
                 }
-            }).catch(e => {
-                logger.debug("ping exception:  " + e?.message || e);
-                return e === "timeout" ? LaunchConfigState.Unreachable : LaunchConfigState.Credentials;
             });
     }
 
@@ -372,29 +368,32 @@ export class LaunchConfig implements LaunchRequestArguments {
         if (this.name === "not found") {
             throw new Error(localize("No ECL Launch configurations."));
         }
-        const pingResult = await this.ping();
-        switch (pingResult) {
-            case LaunchConfigState.Ok:
-                return this.credentials();
-            case LaunchConfigState.Credentials:
-                for (let i = 0; i < 3; ++i) {
-                    if (await this.promptUserID()) {
-                        await this.promptPassword();
+        return this.firstPing().then(async pingResult => {
+            switch (pingResult) {
+                case LaunchConfigState.Ok:
+                    return this.credentials();
+                case LaunchConfigState.Credentials:
+                    for (let i = 0; i < 3; ++i) {
+                        if (await this.promptUserID()) {
+                            await this.promptPassword();
+                        }
+                        const credentials = this.credentials();
+                        if (!credentials.user && !credentials.password) {
+                            break;
+                        }
+                        if (await this.verifyUser()) {
+                            return this.credentials();
+                        }
                     }
-                    const credentials = this.credentials();
-                    if (!credentials.user && !credentials.password) {
-                        break;
-                    }
-                    if (await this.verifyUser()) {
-                        return this.credentials();
-                    }
-                }
-                throw new Error(localize("Invalid Credentials."));
-            case LaunchConfigState.Unknown:
-            case LaunchConfigState.Unreachable:
-            default:
-                throw new Error(`${localize("Connection failed")}.`);
-        }
+                    throw new Error(localize("Invalid Credentials."));
+                case LaunchConfigState.Unknown:
+                case LaunchConfigState.Unreachable:
+                default:
+                    throw new Error(`${localize("Connection failed")}.`);
+            }
+        }).catch(e => {
+            throw e;
+        });
     }
 
     _checkingCredentials: Promise<Credentials>;
@@ -689,7 +688,7 @@ export class LaunchConfig implements LaunchRequestArguments {
                     return [wu, archive] as [Workunit, any];
                 });
             }).then(([wu, archive]) => {
-                 
+
                 progress.report({ increment: 10, message: `${localize("Updating Workunit")} ${wu.Wuid}` });
                 // eslint-disable-next-line no-async-promise-executor
                 return new Promise<Workunit>(async (resolve, reject) => {

@@ -3,7 +3,7 @@ import copyStaticFiles from "esbuild-copy-static-files";
 import process from "node:process";
 import path from "node:path";
 import { problemMatcher, removeStrict, nodeTpl } from "@hpcc-js/esbuild-plugins";
-import tsconfigNode from "./tsconfig.json" with {"type": "json"};
+import tsconfigNode from "./tsconfig.extension.json" with {"type": "json"};
 import tsconfigBrowser from "./tsconfig.webview.json" with {"type": "json"};
 
 const outputDirectory = "dist";
@@ -49,7 +49,7 @@ Promise.all([
     main(tsconfigBrowser, "./src/notebook/renderers/wuRenderer.tsx", "browser", "esm"),
     main(tsconfigBrowser, "./src/notebook/renderers/ojsRenderer.ts", "browser", "esm"),
     main(tsconfigBrowser, "./src/eclwatch.tsx", "browser", "iife", [removeStrict()]),
-    main(tsconfigBrowser, "./src/web-extension.ts", "browser", "iife"),
+    // main(tsconfigBrowser, "./src/web-extension.ts", "browser", "iife"),
     nodeTpl("./util/index-docs.ts", "./dist-util/index-docs", "esm")
 ]).catch((e) => {
     console.error(e);

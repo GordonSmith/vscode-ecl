@@ -314,8 +314,27 @@ class ECLErrorNode extends Item<ECLWatchTree> {
         return this._error.message;
     }
 
+    getDescription(): string {
+        if (this._error.cause instanceof Error) {
+            return this._error.cause.message || this._error.cause["code"] || "";
+        } else if (typeof this._error.cause === "string") {
+            return this._error.cause;
+        }
+        return "";
+    }
+
     iconPath() {
         return Circle.error;
+    }
+
+    getTooltip(): string | vscode.MarkdownString | undefined {
+        return new vscode.MarkdownString(`\
+**${this.getLabel()}** _${this.getDescription()}_
+
+\`\`\`bash
+${this._error.stack}
+\`\`\`
+`);
     }
 }
 

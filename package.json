@@ -13,7 +13,6 @@
     "Debuggers"
   ],
   "main": "./dist/extension.js",
-  "browser": "./dist/web-extension",
   "scripts": {
     "clean": "rimraf --glob out lib* dist* types hpcc-systems.ecl.vsix",
     "gen-grammar": "run-script-os",
@@ -24,7 +23,7 @@
     "gen-docs-vecdb:win32": "wsl -e node ./dist-util/index-docs.mjs",
     "gen-nls": "node ./lib-util/generate.js",
     "merge-nls": "node ./lib-util/merge.js",
-    "gen-node-types": "tsc --project tsconfig.json --emitDeclarationOnly",
+    "gen-node-types": "tsc --project tsconfig.extension.json --emitDeclarationOnly",
     "gen-node-watch": "npm run gen-node-types -- -w",
     "gen-webview-types": "tsc --project tsconfig.webview.json --emitDeclarationOnly",
     "gen-webview-watch": "npm run gen-webview-types -- -w",
@@ -53,6 +52,8 @@
   },
   "dependencies": {
     "@vscode/prompt-tsx": "0.2.8-alpha",
+    "d3-format": "3.1.0",
+    "d3-time-format": "4.1.0",
     "exceljs": "4.4.0",
     "html-to-text": "9.0.5"
   },
@@ -60,7 +61,7 @@
     "@eslint/js": "9.18.0",
     "@fluentui/react": "8.122.8",
     "@hpcc-js/common": "2.73.0",
-    "@hpcc-js/comms": "2.99.0",
+    "@hpcc-js/comms": "3.4.0",
     "@hpcc-js/ddl-shim": "2.22.0",
     "@hpcc-js/dgrid2": "2.5.0",
     "@hpcc-js/esbuild-plugins": "1.4.0",
@@ -85,7 +86,7 @@
     "@types/react": "17.0.83",
     "@types/react-dom": "17.0.26",
     "@types/tmp": "0.2.6",
-    "@types/vscode": "1.96.0",
+    "@types/vscode": "1.92.0",
     "@types/vscode-notebook-renderer": "1.72.3",
     "@typescript-eslint/eslint-plugin": "8.21.0",
     "@typescript-eslint/parser": "8.21.0",

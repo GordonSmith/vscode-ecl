@@ -3,22 +3,21 @@
         "rootDir": ".",
         "outDir": "lib-es6",
         "declarationDir": "./types",
-        "module": "CommonJS",
+        "moduleResolution": "node",
         "target": "ES2022",
-        "jsx": "react",
-        "jsxFactory": "vscpp",
-        "jsxFragmentFactory": "vscppf",
         "declaration": true,
         "strict": true,
         "skipLibCheck": true,
         "strictNullChecks": false,
         "noImplicitAny": false,
-        "types": [
-            "node"
-        ],
+        "forceConsistentCasingInFileNames": true,
         "paths": {
             "antlr4": [
                 "./node_modules/antlr4/dist/antlr4.node.cjs"
+            ],
+            "@hpcc-js/comms": [
+                "./node_modules/@hpcc-js/comms/types/index.node.d.ts",
+                "../Visualization/packages/comms/types/index.node.d.ts"
             ],
             "@hpcc-js/*": [
                 "./node_modules/@hpcc-js/*",

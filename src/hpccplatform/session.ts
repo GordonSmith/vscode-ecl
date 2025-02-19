@@ -3,7 +3,6 @@ import { WsWorkunits, Workunit, ClientTools } from "@hpcc-js/comms";
 import { launchConfigurations, LaunchConfig, LaunchRequestArguments, espUrl, wuDetailsUrl, wuResultUrl, CheckResponse, launchConfiguration, IExecFile } from "./launchConfig";
 import { LaunchConfigState, LaunchMode } from "../debugger/launchRequestArguments";
 import localize from "../util/localize";
-import { ECL_MODE } from "../mode";
 import { eclTempFile } from "../util/fs";
 
 const isMultiRoot = () => vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 1;
@@ -94,7 +93,7 @@ class Session {
     }
 
     ping(force = false) {
-        return this._launchConfig.pingServer();
+        return this._launchConfig.intervalPing();
     }
 
     verify(ecl: string) {
@@ -349,7 +348,7 @@ class SessionManager {
     }
 
     async updateConnection() {
-        const state = (await this.session?.ping(true)) || LaunchConfigState.Unknown;
+        const state = await this.session?.ping(true).catch(() => LaunchConfigState.Error);
         vscode.commands.executeCommand("setContext", "ecl.connected", state === LaunchConfigState.Ok);
         this._onDidPing.fire(state);
     }
@@ -472,6 +471,7 @@ class SessionManager {
                 return "$(key)";
             case LaunchConfigState.Ok:
                 return "$(pass-filled)";
+            case LaunchConfigState.Error:
             case LaunchConfigState.Unreachable:
                 return "$(error)";
             case LaunchConfigState.Unknown:

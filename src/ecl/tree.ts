@@ -1,4 +1,4 @@
-import { ExtensionContext, Event, EventEmitter, TreeItem, TreeDataProvider, Command, commands, env, ProviderResult, ThemeIcon, TreeItemCollapsibleState, TreeView, Uri, window, workspace } from "vscode";
+import { ExtensionContext, Event, EventEmitter, TreeItem, TreeDataProvider, Command, ProviderResult, ThemeIcon, TreeItemCollapsibleState, TreeView, window, MarkdownString } from "vscode";
 
 export class Tree implements TreeDataProvider<Item> {
     _ctx: ExtensionContext;
@@ -31,6 +31,7 @@ export class Tree implements TreeDataProvider<Item> {
         node._treeItem.contextValue = node.contextValue();
         node._treeItem.iconPath = node.iconPath();
         node._treeItem.command = node.command();
+        node._treeItem.tooltip = node.getTooltip();
         return node._treeItem;
     }
 
@@ -59,6 +60,10 @@ export class Item<T extends Tree = Tree> {
     }
 
     getDescription(): string {
+        return undefined;
+    }
+
+    getTooltip(): string | MarkdownString | undefined {
         return undefined;
     }
 

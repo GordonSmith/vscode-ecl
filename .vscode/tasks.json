@@ -35,11 +35,21 @@
             }
         },
         {
+            "type": "npm",
+            "label": "ssl-proxy-server",
+            "script": "ssl-proxy-server",
+            "problemMatcher": [],
+            "presentation": {
+                "group": "group-build"
+            }
+        },
+        {
             "label": "build",
             "dependsOn": [
                 "gen-node-watch",
                 "gen-webview-watch",
-                "build-ts-watch"
+                "build-ts-watch",
+                "ssl-proxy-server"
             ],
             "group": {
                 "kind": "build",
