@@ -1528,6 +1528,12 @@
         ]
       }
     ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "ecl-mcp-server",
+        "label": "ECL MCP Server"
+      }
+    ],
     "debuggers": [
       {
         "type": "ecl",
