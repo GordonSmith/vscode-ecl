@@ -141,6 +141,28 @@
     "workspaceContains:*.dashy"
   ],
   "contributes": {
+    "languageModelTools": [
+      {
+        "name": "ecl_chat_getOpenECLFiles",
+        "displayName": "Get open ECL files",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "ecl-openFiles",
+        "icon": "resources/hpcc-icon-bw.svg",
+        "userDescription": "Returns a list of currently open ECL files and their paths.",
+        "modelDescription": "Use this tool to list the currently open ECL files in the editor. It returns a concise list of file names and absolute paths for documents with language id 'ecl'. Use it when you need to inspect which ECL files are open or to choose a file to act on. Do not use for non-ECL files.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "onlyDirty": {
+              "type": "boolean",
+              "description": "If true, only include files with unsaved changes.",
+              "default": false
+            }
+          },
+          "required": []
+        }
+      }
+    ],
     "languages": [
       {
         "id": "ecl",

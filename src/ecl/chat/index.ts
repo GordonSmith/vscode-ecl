@@ -4,6 +4,7 @@ import localize from "../../util/localize";
 import { handleDocsCommand } from "./prompts/docs";
 import { handleIssueManagement } from "./prompts/issues";
 import { checkModelExists } from "./utils/model";
+import { registerLanguageModelTools } from "./tools";
 
 const ECL_PARTICIPANT_ID = "chat.ecl";
 
@@ -82,6 +83,8 @@ export class ECLChat {
                 kind: feedback.kind
             });
         }));
+
+        registerLanguageModelTools(ctx);
     }
 
     static attach(ctx: vscode.ExtensionContext): ECLChat {
