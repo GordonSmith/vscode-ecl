@@ -245,6 +245,32 @@
         }
       },
       {
+        "name": "ecl-extension-getWorkunitDetails",
+        "tags": [
+          "workunit",
+          "details",
+          "info",
+          "ecl-extension"
+        ],
+        "toolReferenceName": "getWorkunitDetails",
+        "displayName": "Get Workunit Details",
+        "modelDescription": "Fetch detailed information about a specific workunit including its state, results, exceptions, cluster time, and other metadata. Requires a WUID (Workunit ID).",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(info)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "wuid": {
+              "type": "string",
+              "description": "The Workunit ID (WUID) to fetch details for"
+            }
+          },
+          "required": [
+            "wuid"
+          ]
+        }
+      },
+      {
         "name": "ecl-extension-syntaxCheck",
         "tags": [
           "editors",
