@@ -247,6 +247,52 @@
         }
       },
       {
+        "name": "ecl-extension-getLogicalFileRecordDefinition",
+        "tags": [
+          "logical files",
+          "record definition",
+          "schema",
+          "ecl-extension",
+          "ecl",
+          "data"
+        ],
+        "toolReferenceName": "getLogicalFileRecordDefinition",
+        "displayName": "Get Logical File Record Definition",
+        "modelDescription": "Use this tool when the user asks for the ECL RECORD layout, schema, or record definition of a specific HPCC logical file. This requires the exact logical file name. If the user only has a partial name or pattern, use findLogicalFiles first.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(symbol-structure)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "logicalFile": {
+              "type": "string",
+              "description": "The exact HPCC logical file name whose ECL record definition should be fetched."
+            }
+          },
+          "required": [
+            "logicalFile"
+          ]
+        }
+      },
+      {
+        "name": "ecl-extension-getTargetClusters",
+        "tags": [
+          "target clusters",
+          "topology",
+          "hpcc platform",
+          "ecl-extension"
+        ],
+        "toolReferenceName": "getTargetClusters",
+        "displayName": "Get Target Clusters",
+        "modelDescription": "Use this tool when the user asks which HPCC target clusters are available on the active platform connection, or needs to choose a cluster for ECL submit, compile, publish, or debug operations.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(server-environment)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
         "name": "ecl-extension-getWorkunitErrors",
         "tags": [
           "workunit",
@@ -348,6 +394,81 @@
               "type": "string",
               "description": "The exact ECL source text to validate. Pass the user's code, not a summary or paraphrase.",
               "default": ""
+            }
+          },
+          "required": [
+            "ecl"
+          ]
+        }
+      },
+      {
+        "name": "ecl-extension-listClientTools",
+        "tags": [
+          "client tools",
+          "eclcc",
+          "versions",
+          "local tools",
+          "ecl-extension"
+        ],
+        "toolReferenceName": "listClientTools",
+        "displayName": "List ECL Client Tools",
+        "modelDescription": "Use this tool when the user asks what local ECL client tools or eclcc versions are installed, which eclcc binary will be available, or whether client tools can be located. This inspects local client tool installations, not HPCC Platform workunits.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(tools)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "includeInvalid": {
+              "type": "boolean",
+              "description": "Set true to include installations whose eclcc version could not be validated. Default: false."
+            }
+          }
+        }
+      },
+      {
+        "name": "ecl-extension-listECLBundles",
+        "tags": [
+          "bundles",
+          "client tools",
+          "eclcc",
+          "ecl-extension"
+        ],
+        "toolReferenceName": "listECLBundles",
+        "displayName": "List ECL Bundles",
+        "modelDescription": "Use this tool when the user asks which ECL bundles are available or installed according to the local ECL client tools. This uses the client tools bundle list command.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(package)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "ecl-extension-createECLArchive",
+        "tags": [
+          "eclcc",
+          "archive",
+          "compile",
+          "client tools",
+          "ecl-extension",
+          "ecl"
+        ],
+        "toolReferenceName": "createECLArchive",
+        "displayName": "Create ECL Archive",
+        "modelDescription": "Use this tool when the user provides concrete ECL code and asks for an eclcc archive, archive generation errors, or pre-submit archive validation. Prefer syntaxCheck for simple syntax validation. Set includeArchive only when the user explicitly needs the full XML archive.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(archive)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ecl": {
+              "type": "string",
+              "description": "The exact ECL source text to archive using eclcc. Pass the user's code, not a summary.",
+              "default": ""
+            },
+            "includeArchive": {
+              "type": "boolean",
+              "description": "Set true only when the full generated XML archive is needed. Default: false returns metadata and a preview."
             }
           },
           "required": [
