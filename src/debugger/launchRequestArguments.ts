@@ -25,6 +25,7 @@ export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArgum
     eclccSyntaxArgs?: string[];
     eclccLogFile?: string
     resultLimit?: number;
+    sqlPort?: number;
     timeoutSecs?: number;
     user?: string;
     password?: string;

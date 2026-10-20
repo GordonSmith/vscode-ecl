@@ -10,14 +10,15 @@ const __VSCODE_ISSUES = "__vscode_issues";
 //  Reserved width for the overflow "more" button when reflowing tabs.
 const OVERFLOW_MENU_WIDTH = 32;
 
-interface ResultTab {
+export interface ResultTab {
     key: string;
     label: string;
+    tooltip?: string;
 }
 
 //  Fluent's Overflow/OverflowItem primitives don't reliably detect overflow for this tab
 //  list in this build, so visible/hidden tabs are computed manually from measured widths.
-function useResponsiveTabs(tabs: ResultTab[], selected: string) {
+export function useResponsiveTabs(tabs: ResultTab[], selected: string) {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const itemRefs = React.useRef(new Map<string, HTMLElement>());
     const [visibleKeys, setVisibleKeys] = React.useState<string[]>(() => tabs.map(tab => tab.key));
@@ -89,7 +90,7 @@ interface OverflowTabMenuProps {
     onSelect: (tab: ResultTab) => void;
 }
 
-const OverflowTabMenu: React.FunctionComponent<OverflowTabMenuProps> = ({ tabs, onSelect }) => {
+export const OverflowTabMenu: React.FunctionComponent<OverflowTabMenuProps> = ({ tabs, onSelect }) => {
     if (tabs.length === 0) {
         return null;
     }
@@ -104,7 +105,7 @@ const OverflowTabMenu: React.FunctionComponent<OverflowTabMenuProps> = ({ tabs, 
         </MenuTrigger>
         <MenuPopover>
             <MenuList>
-                {tabs.map(tab => <MenuItem key={tab.key} onClick={() => onSelect(tab)}>{tab.label}</MenuItem>)}
+                {tabs.map(tab => <MenuItem key={tab.key} title={tab.tooltip} onClick={() => onSelect(tab)}>{tab.label}</MenuItem>)}
             </MenuList>
         </MenuPopover>
     </Menu>;

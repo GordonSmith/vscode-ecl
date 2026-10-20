@@ -201,5 +201,16 @@
     "View Dashboard": "View Dashboard",
     "Waiting": "Waiting",
     "Workunit Renderer": "Workunit Renderer",
-    "Write eclcc log file to specified file": "Write eclcc log file to specified file"
+    "Write eclcc log file to specified file": "Write eclcc log file to specified file",
+    "Submit SQL": "Submit SQL",
+    "Submit SQL to HPCC Platform": "Submit SQL to HPCC Platform",
+    "Cancel SQL": "Cancel SQL",
+    "Cancel running SQL query": "Cancel running SQL query",
+    "WsSQL2 port (SQL submission)": "WsSQL2 port (SQL submission)",
+    "Number of rows fetched per SQL result page": "Number of rows fetched per SQL result page",
+    "Maximum number of SQL rows buffered per statement": "Maximum number of SQL rows buffered per statement",
+    "No SQL statements found": "No SQL statements found",
+    "No active HPCC Platform launch configuration": "No active HPCC Platform launch configuration",
+    "Executing SQL": "Executing SQL",
+    "Results are no longer available, please resubmit": "Results are no longer available, please resubmit"
 }

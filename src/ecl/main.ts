@@ -35,6 +35,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     ECLWatchTree.attach(ctx);
     logger.debug("Activating ECLWatchPanelView");
     ECLWatchPanelView.attach(ctx);
+    logger.debug("Activating SQL");
+    import("../sql/main").then(({ activate }) => activate(ctx)).catch(e => logger.error(`Failed to activate SQL: ${e}`));
     logger.debug("Activating ECLTerminal");
     ECLTerminal.attach(ctx);
     logger.debug("Activating HPCCResources");

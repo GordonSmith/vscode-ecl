@@ -1,6 +1,7 @@
 import React from "react";
 import { useOnEvent, useEventCallback } from "@fluentui/react-hooks";
-import { isMessage, LoadedMessage, ProxyCancelMessage, ProxySendMessage, State, vscode } from "./messages";
+import { isMessage, LoadedMessage, ProxyCancelMessage, ProxySendMessage, SqlCancelMessage, SqlFetchMessage, ViewState, vscode } from "./messages";
+import type { SQLRange } from "../sql/types";
 import { hookSend } from "@hpcc-js/comms";
 
 interface Executor<T> {
@@ -52,8 +53,25 @@ hookSend((opts, action, request, responseType, header) => {
     });
 });
 
-export function useMessageReceiver() {
-    const [state, setState] = React.useState<State>();
+export function requestSqlRange(runId: string, statementId: number, start: number, end: number): Promise<SQLRange> {
+    const id = ++proxyID;
+    return new Promise<SQLRange>((resolve, reject) => {
+        proxyPromises.set(id, { resolve: resolve as Executor<unknown>["resolve"], reject, cleanup: () => undefined });
+        vscode.postMessage<SqlFetchMessage>({ command: "sqlFetch", id, runId, statementId, start, end });
+    });
+}
+
+export function cancelSql(runId: string): void {
+    vscode.postMessage<SqlCancelMessage>({ command: "sqlCancel", runId });
+}
+
+//  An empty range request starts a (lazily executed) pending statement
+export function startSql(runId: string, statementId: number): void {
+    requestSqlRange(runId, statementId, 0, 0).catch(() => undefined);
+}
+
+export function useMessageReceiver(): ViewState | undefined {
+    const [state, setState] = React.useState<ViewState>();
 
     const cb = useEventCallback((event: MessageEvent) => {
         if (!isMessage(event.data)) {
@@ -62,8 +80,12 @@ export function useMessageReceiver() {
         const message = event.data;
         switch (message.command) {
             case "navigate":
-                setState(message.data);
+                setState({ kind: "wu", state: message.data });
                 break;
+            case "navigateSql":
+                setState({ kind: "sql", run: message.data });
+                break;
+            case "sqlFetchResponse":
             case "proxyResponse": {
                 const executor = proxyPromises.get(message.id);
                 if (executor) {
@@ -72,7 +94,7 @@ export function useMessageReceiver() {
                     if ("error" in message) {
                         executor.reject(new Error(message.error));
                     } else {
-                        executor.resolve(message.response);
+                        executor.resolve("range" in message ? message.range : message.response);
                     }
                 }
                 break;
@@ -88,10 +110,13 @@ export function useMessageReceiver() {
         if (isTestPage) {
             setTimeout(() => {
                 setState({
-                    baseUrl: "http://localhost:8010",
-                    userID: "gosmith",
-                    password: "",
-                    wuid: "W20240814-084327"
+                    kind: "wu",
+                    state: {
+                        baseUrl: "http://localhost:8010",
+                        userID: "gosmith",
+                        password: "",
+                        wuid: "W20240814-084327"
+                    }
                 });
             }, 1000);
         }

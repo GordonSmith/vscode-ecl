@@ -5,12 +5,22 @@ import { LaunchRequestArguments } from "../debugger/launchRequestArguments";
 import { wuDetailsUrl, wuResultUrl } from "../hpccplatform/launchConfig";
 import { sessionManager } from "../hpccplatform/session";
 import type { Messages } from "../eclwatch/messages";
+import type { SQLRange, SQLRunState } from "../sql/types";
 import { credentialManager } from "../util/credentialManager";
+import localize from "../util/localize";
 
 interface NavigateParams extends LaunchRequestArguments {
     wuid: string;
     resultName?: string;
     show: boolean;
+}
+
+export interface SqlRunSource {
+    readonly runId: string;
+    state(): SQLRunState;
+    fetchRange(statementId: number, start: number, end: number): Promise<SQLRange>;
+    cancel(): Promise<void>;
+    onDidUpdate(listener: (state: SQLRunState) => void): { dispose: () => void };
 }
 
 export let eclWatchPanelView: ECLWatchPanelView;
@@ -23,6 +33,9 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     private _webviewView?: vscode.WebviewView;
     private _currParams: NavigateParams;
     private _abortControllers = new Map<number, AbortController>();
+    private _mode: "wu" | "sql" = "wu";
+    private _sqlRun?: SqlRunSource;
+    private _sqlRunListener?: { dispose: () => void };
 
     private constructor(ctx: vscode.ExtensionContext) {
         this._ctx = ctx;
@@ -84,7 +97,9 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
         this._webviewView.webview.onDidReceiveMessage(async (message: Messages) => {
             switch (message.command) {
                 case "loaded":
-                    if (this._initialParams) {
+                    if (this._mode === "sql" && this._sqlRun) {
+                        this.postSqlState(this._sqlRun.state());
+                    } else if (this._initialParams) {
                         this.navigateTo(this._initialParams, this._initialParams.wuid, this._initialParams.resultName, this._initialParams.show);
                         delete this._initialParams;
                     } else {
@@ -121,6 +136,28 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
                 case "proxyCancel":
                     this._abortControllers.get(message.id)?.abort();
                     break;
+                case "sqlFetch": {
+                    const run = this._sqlRun;
+                    try {
+                        if (!run || run.runId !== message.runId) {
+                            throw new Error(localize("Results are no longer available, please resubmit"));
+                        }
+                        const range = await run.fetchRange(message.statementId, message.start, message.end);
+                        await this._webviewView?.webview.postMessage({ command: "sqlFetchResponse", id: message.id, range } as Messages);
+                    } catch (error) {
+                        await this._webviewView?.webview.postMessage({
+                            command: "sqlFetchResponse",
+                            id: message.id,
+                            error: error instanceof Error ? error.message : String(error)
+                        } as Messages);
+                    }
+                    break;
+                }
+                case "sqlCancel":
+                    if (this._sqlRun?.runId === message.runId) {
+                        await this._sqlRun.cancel();
+                    }
+                    break;
             }
         });
 
@@ -136,6 +173,11 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
     navigateTo(launchRequestArgs: LaunchRequestArguments, wuid: string, resultName?: string, show = true) {
         const { protocol, serverAddress, port, path, user, password, rejectUnauthorized, name, type, targetCluster } = launchRequestArgs;
         this._currParams = { protocol, serverAddress, port, path, user, password, rejectUnauthorized, name, type, targetCluster, wuid, resultName, show };
+        if (this._mode === "sql" && !wuid) {
+            //  Session changes should not replace SQL results
+            return;
+        }
+        this._mode = "wu";
         if (!this._webviewView) {
             this._initialParams = this._currParams;
             if (show) {
@@ -163,6 +205,33 @@ export class ECLWatchPanelView implements vscode.WebviewViewProvider {
                 vscode.commands.executeCommand("setContext", "ecl.watch.lite.hasWuid", !!this._currParams?.wuid);
             }
         }
+    }
+
+    navigateSql(run: SqlRunSource, show = true) {
+        this._mode = "sql";
+        this._prevHash = undefined;
+        this._initialParams = undefined;
+        this._sqlRunListener?.dispose();
+        this._sqlRun = run;
+        this._sqlRunListener = run.onDidUpdate(state => this.postSqlState(state));
+        vscode.commands.executeCommand("setContext", "ecl.watch.lite.hasWuid", false);
+        if (!this._webviewView) {
+            //  State is posted once the webview reports "loaded"
+            if (show) {
+                vscode.commands.executeCommand("ecl.watch.lite.focus");
+            }
+        } else {
+            this.postSqlState(run.state());
+            if (show) {
+                this._webviewView.show(true);
+            }
+        }
+    }
+
+    private postSqlState(state: SQLRunState) {
+        if (this._mode !== "sql" || this._sqlRun?.runId !== state.runId || !this._webviewView) return;
+        this._webviewView.title = state.title;
+        this._webviewView.webview.postMessage({ command: "navigateSql", data: state } as Messages);
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

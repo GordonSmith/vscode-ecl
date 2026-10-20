@@ -485,6 +485,25 @@
         "enablement": "ecl.connected"
       },
       {
+        "command": "ecl.sql.submit",
+        "category": "ECL",
+        "title": "%Submit SQL%",
+        "description": "%Submit SQL to HPCC Platform%",
+        "icon": {
+          "light": "resources/light/play.svg",
+          "dark": "resources/dark/play.svg"
+        },
+        "enablement": "!ecl.sql.running"
+      },
+      {
+        "command": "ecl.sql.cancel",
+        "category": "ECL",
+        "title": "%Cancel SQL%",
+        "description": "%Cancel running SQL query%",
+        "icon": "$(debug-stop)",
+        "enablement": "ecl.sql.running"
+      },
+      {
         "command": "hpccPlatform.resubmitWU",
         "category": "ECL",
         "title": "%Resubmit%",
@@ -1213,6 +1232,11 @@
           "group": "ecl@5"
         },
         {
+          "when": "editorLangId == sql",
+          "command": "ecl.sql.submit",
+          "group": "hpcc@1"
+        },
+        {
           "when": "resourceLangId == kel && resourceExtname == .kel",
           "command": "kel.checkSyntax",
           "group": "navigation@998"
@@ -1268,6 +1292,21 @@
           "when": "resourceLangId == ecl && ecl.connected",
           "command": "hpccPlatform.switchTargetCluster",
           "group": "navigation@940"
+        },
+        {
+          "when": "resourceLangId == sql && !ecl.sql.running",
+          "command": "ecl.sql.submit",
+          "group": "navigation@900"
+        },
+        {
+          "when": "resourceLangId == sql && ecl.sql.running",
+          "command": "ecl.sql.cancel",
+          "group": "navigation@900"
+        },
+        {
+          "when": "resourceLangId == sql",
+          "command": "hpccPlatform.switch",
+          "group": "navigation@930"
         },
         {
           "when": "resourceLangId == kel",
@@ -1538,6 +1577,12 @@
         "when": "editorTextFocus && editorLangId == ecl"
       },
       {
+        "command": "ecl.sql.submit",
+        "key": "f5",
+        "mac": "f5",
+        "when": "editorTextFocus && editorLangId == sql"
+      },
+      {
         "command": "ecl.submitNoArchive",
         "key": "ctrl+f5",
         "mac": "cmd+f5",
@@ -1695,6 +1740,20 @@
           "scope": "resource",
           "default": false,
           "description": "%Save file prior to submission%"
+        },
+        "ecl.sql.fetchSize": {
+          "type": "number",
+          "scope": "resource",
+          "default": 1000,
+          "minimum": 1,
+          "description": "%Number of rows fetched per SQL result page%"
+        },
+        "ecl.sql.maxBufferedRows": {
+          "type": "number",
+          "scope": "resource",
+          "default": 100000,
+          "minimum": 1,
+          "description": "%Maximum number of SQL rows buffered per statement%"
         },
         "ecl.includeFolders": {
           "type": "array",
@@ -1959,6 +2018,11 @@
                 "type": "number",
                 "description": "%Max result limit for workunit results%",
                 "default": 100
+              },
+              "sqlPort": {
+                "type": "number",
+                "description": "%WsSQL2 port (SQL submission)%",
+                "default": 8510
               },
               "timeoutSecs": {
                 "type": "number",

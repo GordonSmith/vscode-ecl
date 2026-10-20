@@ -1,9 +1,12 @@
 import type { IOptions, ResponseType } from "@hpcc-js/comms";
+import type { SQLRange, SQLRunState } from "../sql/types";
 
 export interface State extends IOptions {
     wuid: string;
     resultName?: string;
 }
+
+export type ViewState = { kind: "wu", state: State } | { kind: "sql", run: SQLRunState };
 
 export interface VSCodeAPI {
     postMessage: <T extends Message>(msg: T) => void;
@@ -60,7 +63,41 @@ export interface ProxyCancelMessage extends Message {
     id: number;
 }
 
-export type Messages = NavigateMessage | LoadedMessage | ProxySendMessage | ProxyResponseMessage | ProxyCancelMessage;
+export interface NavigateSqlMessage extends Message {
+    command: "navigateSql";
+    data: SQLRunState;
+}
+
+export interface SqlFetchMessage extends Message {
+    command: "sqlFetch";
+    id: number;
+    runId: string;
+    statementId: number;
+    start: number;
+    end: number;
+}
+
+export interface SqlFetchResponseSuccessMessage extends Message {
+    command: "sqlFetchResponse";
+    id: number;
+    range: SQLRange;
+}
+
+export interface SqlFetchResponseErrorMessage extends Message {
+    command: "sqlFetchResponse";
+    id: number;
+    error: string;
+}
+
+export type SqlFetchResponseMessage = SqlFetchResponseSuccessMessage | SqlFetchResponseErrorMessage;
+
+export interface SqlCancelMessage extends Message {
+    command: "sqlCancel";
+    runId: string;
+}
+
+export type Messages = NavigateMessage | LoadedMessage | ProxySendMessage | ProxyResponseMessage | ProxyCancelMessage |
+    NavigateSqlMessage | SqlFetchMessage | SqlFetchResponseMessage | SqlCancelMessage;
 
 export function isMessage(value: unknown): value is Messages {
     if (!value || typeof value !== "object") {
@@ -87,6 +124,20 @@ export function isMessage(value: unknown): value is Messages {
                 !!params.request && typeof params.request === "object" &&
                 (params.responseType === "json" || params.responseType === "text" || params.responseType === "arraybuffer");
         }
+        case "navigateSql": {
+            const data = message.data as Record<string, unknown> | undefined;
+            return !!data && typeof data.runId === "string" && Array.isArray(data.statements);
+        }
+        case "sqlFetch":
+            return typeof message.id === "number" && typeof message.runId === "string" && typeof message.statementId === "number" &&
+                typeof message.start === "number" && typeof message.end === "number";
+        case "sqlFetchResponse": {
+            const range = message.range as Record<string, unknown> | undefined;
+            return typeof message.id === "number" &&
+                (typeof message.error === "string" || (!!range && Array.isArray(range.rows) && typeof range.totalLength === "number"));
+        }
+        case "sqlCancel":
+            return typeof message.runId === "string";
         default:
             return false;
     }

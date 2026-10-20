@@ -402,9 +402,27 @@ Submitting ECL using VS-Code requires specifying the target environment within t
   "rejectUnauthorized": true,
   "resultLimit": 100,
   "timeoutSecs": 60,
+  "sqlPort": 8510,
   "user": "vscode_user",
   "password": ""
 }
+```
+
+#### SQL Submission (WsSQL2)
+
+SQL files (`.sql`) can be submitted directly to an HPCC Platform that exposes the WsSQL2 service. It uses the active ECL launch configuration, with the same protocol, server address, credentials and TLS settings, and connects to its `sqlPort` (default `8510`).
+
+- Press `F5`, use the editor title "Submit SQL" button, or right-click and choose "Submit SQL". If there is a selection, only the selection is submitted; otherwise the whole file is.
+- Multiple `;` separated statements each get their own result tab in the ECL Watch panel. A statement only runs when its tab is first shown, so you can go straight to any result without waiting for the others, and a failing statement does not affect the others. Errors appear once the failing statement's tab has been opened. Statements are split by the server's DuckDB parser (WsSQL2 `SplitQuery`). If the server can't split the text (for example because of a syntax error, or on an older server), a local splitter is used so the valid statements still run.
+- Errors appear in the panel's "Issues" tab and as diagnostics (squiggles) in the editor at the reported line/column.
+- Results are paged on demand from a server-side cursor, so there is no workunit to create or monitor. Use "Cancel SQL" to stop a running query and release its cursors.
+
+```typescript
+  // Number of rows fetched per SQL result page
+  "ecl.sql.fetchSize": 1000
+
+  // Maximum number of SQL rows buffered per statement (results are marked truncated beyond this)
+  "ecl.sql.maxBufferedRows": 100000
 ```
 
 ## KEL
