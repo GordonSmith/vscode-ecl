@@ -1,9 +1,16 @@
 import * as React from "react";
 import { useResizeObserver } from "use-resize-observer";
-import { Widget } from "@hpcc-js/common";
+
+interface VisualizationWidget {
+    target(): unknown;
+    target(target: HTMLDivElement | null): unknown;
+    resize(size: { width: number; height: number }): unknown;
+    lazyRender(): unknown;
+    render(): unknown;
+}
 
 export interface VisualizationProps {
-    widget: Widget;
+    widget: VisualizationWidget;
     debounce?: boolean;
 }
 
